@@ -1,4 +1,4 @@
-# Base Microservice Framework for RCAI Incident Simulation
+# Base Microservice Framework for RCAI Incident Simulation with Telemetry Ingestion
 import json
 import logging
 import time
@@ -16,6 +16,8 @@ from prometheus_client import (
 )
 from simulator.faults.injector import FaultInjector
 from simulator.faults.models import FaultConfig, FaultType
+from observability.logs.collector import global_log_collector, LogEntry
+from observability.tracing.collector import global_trace_collector, Span
 
 class JsonLogFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
@@ -33,19 +35,39 @@ class JsonLogFormatter(logging.Formatter):
             log_payload["exception"] = self.formatException(record.exc_info)
         return json.dumps(log_payload)
 
+class CollectorLogHandler(logging.Handler):
+    def __init__(self, service_name: str, version: str):
+        super().__init__()
+        self.service_name = service_name
+        self.version = version
+
+    def emit(self, record: logging.LogRecord) -> None:
+        entry = LogEntry(
+            timestamp=record.created,
+            service=self.service_name,
+            level=record.levelname,
+            event=getattr(record, "event", "application_log"),
+            message=record.getMessage(),
+            request_id=getattr(record, "request_id", "none"),
+            trace_id=getattr(record, "trace_id", "none"),
+            version=self.version
+        )
+        global_log_collector.record_log(entry)
+
 def setup_service_logger(service_name: str, version: str) -> logging.Logger:
     logger = logging.getLogger(f"rcai.{service_name}")
     logger.setLevel(logging.INFO)
     logger.propagate = False
     
-    # Remove existing handlers to avoid duplicates
     for handler in list(logger.handlers):
         logger.removeHandler(handler)
         
-    handler = logging.StreamHandler()
-    formatter = JsonLogFormatter()
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(JsonLogFormatter())
+    logger.addHandler(stream_handler)
+    
+    collector_handler = CollectorLogHandler(service_name, version)
+    logger.addHandler(collector_handler)
     return logger
 
 class BaseService:
@@ -66,7 +88,6 @@ class BaseService:
         self.logger = setup_service_logger(service_name, version)
         self.fault_injector = FaultInjector(service_name)
         
-        # Isolated Prometheus Registry per service
         self.registry = CollectorRegistry()
         
         self.http_requests_total = Counter(
@@ -112,16 +133,20 @@ class BaseService:
         async def observability_and_fault_middleware(request: Request, call_next):
             req_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
             trace_id = request.headers.get("X-Trace-ID", str(uuid.uuid4()))
-            start_ts = time.perf_counter()
+            parent_span_id = request.headers.get("X-Parent-Span-ID")
+            start_wall = time.time()
+            start_perf = time.perf_counter()
             
-            # Attach tracking to request state
             request.state.request_id = req_id
             request.state.trace_id = trace_id
 
-            # Apply injected pre-request faults (latency, cpu, error)
+            # Apply injected pre-request faults
             fault_error_status = self.fault_injector.apply_pre_request_faults()
             if fault_error_status is not None:
-                duration = time.perf_counter() - start_ts
+                duration_perf = time.perf_counter() - start_perf
+                duration_ms = duration_perf * 1000.0
+                end_wall = start_wall + duration_perf
+                
                 self.http_requests_total.labels(
                     service=self.service_name,
                     method=request.method,
@@ -131,8 +156,34 @@ class BaseService:
                 self.http_request_duration_seconds.labels(
                     service=self.service_name,
                     endpoint=request.url.path
-                ).observe(duration)
+                ).observe(duration_perf)
+
+                # Record error span and error log
+                span = Span(
+                    trace_id=trace_id,
+                    parent_span_id=parent_span_id,
+                    service_name=self.service_name,
+                    operation=f"{request.method} {request.url.path}",
+                    start_time=start_wall,
+                    end_time=end_wall,
+                    duration_ms=duration_ms,
+                    status_code=fault_error_status,
+                    error_message=f"InjectedFaultError status={fault_error_status}"
+                )
+                global_trace_collector.record_span(span)
                 
+                log_entry = LogEntry(
+                    timestamp=start_wall,
+                    service=self.service_name,
+                    level="ERROR",
+                    event="injected_fault_triggered",
+                    message=f"Request failed with injected status {fault_error_status}",
+                    request_id=req_id,
+                    trace_id=trace_id,
+                    version=self.version
+                )
+                global_log_collector.record_log(log_entry)
+
                 resp = JSONResponse(
                     status_code=fault_error_status,
                     content={
@@ -149,9 +200,14 @@ class BaseService:
             try:
                 response = await call_next(request)
                 status_code = response.status_code
+                error_msg = None
             except Exception as exc:
                 status_code = 500
-                duration = time.perf_counter() - start_ts
+                error_msg = str(exc)
+                duration_perf = time.perf_counter() - start_perf
+                duration_ms = duration_perf * 1000.0
+                end_wall = start_wall + duration_perf
+                
                 self.http_requests_total.labels(
                     service=self.service_name,
                     method=request.method,
@@ -161,10 +217,26 @@ class BaseService:
                 self.http_request_duration_seconds.labels(
                     service=self.service_name,
                     endpoint=request.url.path
-                ).observe(duration)
+                ).observe(duration_perf)
+
+                span = Span(
+                    trace_id=trace_id,
+                    parent_span_id=parent_span_id,
+                    service_name=self.service_name,
+                    operation=f"{request.method} {request.url.path}",
+                    start_time=start_wall,
+                    end_time=end_wall,
+                    duration_ms=duration_ms,
+                    status_code=status_code,
+                    error_message=error_msg
+                )
+                global_trace_collector.record_span(span)
                 raise exc
 
-            duration = time.perf_counter() - start_ts
+            duration_perf = time.perf_counter() - start_perf
+            duration_ms = duration_perf * 1000.0
+            end_wall = start_wall + duration_perf
+
             self.http_requests_total.labels(
                 service=self.service_name,
                 method=request.method,
@@ -174,7 +246,32 @@ class BaseService:
             self.http_request_duration_seconds.labels(
                 service=self.service_name,
                 endpoint=request.url.path
-            ).observe(duration)
+            ).observe(duration_perf)
+
+            span = Span(
+                trace_id=trace_id,
+                parent_span_id=parent_span_id,
+                service_name=self.service_name,
+                operation=f"{request.method} {request.url.path}",
+                start_time=start_wall,
+                end_time=end_wall,
+                duration_ms=duration_ms,
+                status_code=status_code
+            )
+            global_trace_collector.record_span(span)
+
+            log_level = "WARN" if status_code >= 400 else "INFO"
+            log_entry = LogEntry(
+                timestamp=end_wall,
+                service=self.service_name,
+                level=log_level,
+                event="request_completed",
+                message=f"{request.method} {request.url.path} completed with {status_code} in {duration_ms:.2f}ms",
+                request_id=req_id,
+                trace_id=trace_id,
+                version=self.version
+            )
+            global_log_collector.record_log(log_entry)
 
             response.headers["X-Request-ID"] = req_id
             response.headers["X-Trace-ID"] = trace_id
