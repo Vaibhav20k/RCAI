@@ -66,7 +66,8 @@ class ActiveInvestigator:
         next_action = self.selector.select_next_action(
             state.hypothesis_set,
             executed,
-            state.incident.service
+            state.incident.service,
+            state.incident.symptom
         )
         if not next_action:
             state.is_completed = True
