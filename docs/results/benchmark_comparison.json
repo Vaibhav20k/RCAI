@@ -1,0 +1,46 @@
+{
+  "Baseline_A_Rules": {
+    "system_name": "Baseline_A_StaticRules",
+    "total_scenarios_evaluated": 5,
+    "exact_rca_accuracy": 1.0,
+    "top_k_accuracy": 1.0,
+    "false_diagnosis_rate": 0.0,
+    "avg_diagnosis_time_ms": 0.02,
+    "avg_tool_calls_count": 0.0,
+    "evidence_provenance_rate": 0.0,
+    "unsupported_claim_rate": 1.0
+  },
+  "Baseline_B_OneShot": {
+    "system_name": "Baseline_B_OneShotLLM",
+    "total_scenarios_evaluated": 5,
+    "exact_rca_accuracy": 0.6,
+    "top_k_accuracy": 0.6,
+    "false_diagnosis_rate": 0.4,
+    "avg_diagnosis_time_ms": 0.01,
+    "avg_tool_calls_count": 0.0,
+    "evidence_provenance_rate": 0.0,
+    "unsupported_claim_rate": 1.0
+  },
+  "Baseline_C_RAG": {
+    "system_name": "Baseline_C_RAG",
+    "total_scenarios_evaluated": 5,
+    "exact_rca_accuracy": 0.4,
+    "top_k_accuracy": 0.4,
+    "false_diagnosis_rate": 0.6,
+    "avg_diagnosis_time_ms": 0.02,
+    "avg_tool_calls_count": 0.0,
+    "evidence_provenance_rate": 0.0,
+    "unsupported_claim_rate": 0.5
+  },
+  "Proposed_Active_RCAI": {
+    "system_name": "Proposed_Active_RCAI",
+    "total_scenarios_evaluated": 5,
+    "exact_rca_accuracy": 0.4,
+    "top_k_accuracy": 0.4,
+    "false_diagnosis_rate": 0.6,
+    "avg_diagnosis_time_ms": 68.3,
+    "avg_tool_calls_count": 5.2,
+    "evidence_provenance_rate": 1.0,
+    "unsupported_claim_rate": 0.0
+  }
+}
