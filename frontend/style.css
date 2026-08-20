@@ -1,0 +1,84 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+    background-color: #0f172a;
+    color: #f8fafc;
+    padding: 20px;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #334155;
+    margin-bottom: 20px;
+}
+
+.logo-container h1 {
+    font-size: 24px;
+    font-weight: 700;
+    color: #38bdf8;
+}
+
+.subtitle {
+    font-size: 14px;
+    color: #94a3b8;
+}
+
+.status-indicator.live {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    background-color: #22c55e;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.card {
+    background-color: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.card h2 {
+    font-size: 18px;
+    margin-bottom: 15px;
+    color: #e2e8f0;
+    border-bottom: 1px solid #334155;
+    padding-bottom: 8px;
+}
+
+.btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.btn.primary {
+    background-color: #0284c7;
+    color: white;
+}
+
+.btn.success {
+    background-color: #16a34a;
+    color: white;
+}
+
+.hidden {
+    display: none;
+}

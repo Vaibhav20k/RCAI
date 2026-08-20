@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RCAI - Autonomous AI System Investigator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <h1>RCAI Console</h1>
+            <p class="subtitle">Autonomous AI Microservice Root-Cause Investigator</p>
+        </div>
+        <div class="system-status">
+            <span class="status-indicator live"></span> Live Telemetry Active
+        </div>
+    </header>
+
+    <main class="dashboard-grid">
+        <section class="card incident-card">
+            <h2>Active Incidents</h2>
+            <div id="incidents-list">Loading incidents...</div>
+        </section>
+
+        <section class="card investigation-card">
+            <h2>Active Investigation Loop</h2>
+            <div id="investigation-controls">
+                <button id="btn-start-investigation" class="btn primary">Run Autonomous Investigation</button>
+            </div>
+            <div id="hypothesis-container">
+                <h3>Hypothesis Set & Confidence</h3>
+                <div id="hypothesis-list">No active investigation running.</div>
+            </div>
+            <div id="action-history-container">
+                <h3>Action Trajectory</h3>
+                <div id="action-timeline"></div>
+            </div>
+        </section>
+
+        <section class="card evidence-card">
+            <h2>Evidence & Cryptographic Provenance</h2>
+            <div id="evidence-trail">No verified evidence records yet.</div>
+        </section>
+
+        <section class="card remediation-card">
+            <h2>Bounded Remediation & Safety Policy</h2>
+            <div id="remediation-container">
+                <p id="remediation-prompt">Awaiting root-cause diagnosis.</p>
+                <div id="remediation-actions" class="hidden">
+                    <button id="btn-remediate" class="btn success">Apply Recommended Remediation</button>
+                </div>
+                <div id="outcome-container"></div>
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
