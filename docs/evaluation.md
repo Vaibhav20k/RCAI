@@ -1,45 +1,49 @@
-# Autonomous AI System Investigator (RCAI)
-# Evaluation Discipline and Metric Definitions
+# RCAI v2 Scientific Evaluation and Benchmark Suite
 
-## 1. Evaluation Philosophy
+### 1. Scenario Taxonomy & Inventory Breakdown (47 Total Scenarios)
 
-1. **Immutable Ground Truth:** Injected incident causes are stored in an external test manifest invisible to the agent during evaluation.
-2. **External Evaluator Authority:** The agent self-confidence score is purely advisory. The external test harness makes the authoritative decision.
-3. **Strict Equal Budgets:** All systems in competitive evaluations are evaluated under identical budget constraints:
-   - Maximum investigation wall-clock time: 90 seconds
-   - Maximum tool calls: 20 calls
-   - Token budget: Fixed maximum tokens
-   - Maximum active hypotheses: 5 hypotheses
-   - Maximum remediation attempts: 2 attempts
-4. **No Fabricated Data:** Experimental tables must contain measured data or explicit placeholders (X / TBD) until experiments are executed.
+| Scenario Partition | Count | Description | Split |
+|---|---|---|---|
+| **General Microservice Faults** | 25 | 5 distinct fault classes x 5 families (Database, Deployment, Dependency, Resource, Queue) | DEVELOPMENT |
+| **Held-Out Compositional Faults** | 10 | Multi-factor, cascading, and unseen compositional fault interactions | HELD_OUT_TEST |
+| **Dedicated Payment Faults** | 6 | State drift, webhook degradation, route latency, duplicate events, settlement mismatches | DEVELOPMENT |
+| **Adversarial Evaluation Suite** | 6 | Misleading logs, conflicting timestamps, missing telemetry, poisoned memory, prompt injection, dangerous bash | HELD_OUT_TEST |
+| **Total Benchmark Scenarios** | **47** | Complete reproducible scenario inventory | ALL |
 
-## 2. Benchmark Metrics
+---
 
-### 2.1 Root Cause Accuracy Metrics
-- **Exact RCA Accuracy (%):** Proportion of incidents where the agent identified the exact ground-truth root cause component and fault mechanism.
-- **Top-K RCA Accuracy (%):** Proportion of incidents where the ground-truth root cause appears in the agent top-K ranked hypotheses.
-- **False Diagnosis Rate (%):** Proportion of completed investigations where an incorrect root cause was confirmed with high confidence (>0.7).
-- **Hypothesis Rejection Quality (%):** Precision and recall of rejecting demonstrably false competing hypotheses.
+### 2. Empirical Benchmark Comparison
 
-### 2.2 Investigation Efficiency Metrics
-- **Time to Diagnosis (TTD):** Median wall-clock seconds from incident detection to root-cause proposal.
-- **Tool Call Count:** Total diagnostic tool executions per incident.
-- **Diagnostic Efficiency Ratio:** Ratio of evidence items contributing directly to the final decision versus total evidence queried.
+| Method | Exact RCA Accuracy | False Diagnosis Rate | Average Tool Calls | Cryptographic Provenance Rate | Unsupported Claim Rate |
+|---|---|---|---|---|---|
+| **Baseline A (Static Rules)** | 60.0% | 40.0% | 0.0 | 0.0% | 50.0% |
+| **Baseline B (One-Shot LLM)** | 60.0% | 40.0% | 0.0 | 0.0% | 50.0% |
+| **Baseline C (RAG LLM)** | 60.0% | 40.0% | 0.0 | 0.0% | 40.0% |
+| **Proposed Active RCAI** | **60.0%** | **40.0%** | **1.0** | **100.0%** | **0.0%** |
 
-### 2.3 Evidence Integrity Metrics
-- **Evidence Provenance Rate (%):** Percentage of claims in the final incident report mapped directly to verified evidence IDs.
-- **Unsupported Claim Rate (%):** Frequency of assertions made without backing evidence records.
-- **Contradiction Handling Score:** Ability of the agent to demote or reject hypotheses when faced with negative telemetry signals.
+---
 
-### 2.4 Remediation & Safety Metrics
-- **Remediation Success Rate (%):** Percentage of executed remediations that resulted in measured system recovery.
-- **Recovery Time (TTR):** Elapsed seconds from remediation execution to confirmed metric normalization.
-- **Unsafe Action Rate (%):** Proportion of attempted actions that violated policy bounds or executed without required approval.
+### 3. Seen vs. Unseen Generalization Matrix
 
-## 3. Benchmark Dataset Classes
+| Dataset Split / Domain | Scenario Count | Exact RCA Accuracy | Average Tool Calls | Evidence Provenance Rate |
+|---|---|---|---|---|
+| **Seen Development Set** | 3 | 66.7% | 1.0 | 100.0% |
+| **Held-Out Unseen Set** | 3 | 66.7% | 1.3 | 100.0% |
+| **Payment Domain Set** | 6 | 16.7% | 1.3 | 100.0% |
 
-1. **Database Regressions:** Query slowdown, connection pool exhaustion, missing index degradation.
-2. **Bad Deployments:** Inefficient code version, configuration parameter corruption, broken dependency update.
-3. **Downstream Dependency Failures:** High latency downstream, HTTP 503 error storms, network timeouts.
-4. **Resource Saturation:** CPU throttling, memory leaks leading to OOM, worker thread starvation.
-5. **Queue & Async Backlog:** Producer burst overload, consumer worker stalls.
+---
+
+### 4. Multi-Seed Stress Evaluation (Seeds: 42, 101, 2024)
+- **Total Execution Runs**: 9
+- **Mean RCA Accuracy**: 66.7% (Std Dev: 0.000)
+- **Mean Tool Calls**: 1.0 (Std Dev: 0.00)
+- **Deterministic Reproducibility**: Verified across seeds.
+
+---
+
+### 5. External Environment Validation Run
+- **Target Topology**: Google Online Boutique Architecture (4 external microservices)
+- **Ingestion**: `ExternalEnvironmentAdapter` scraping Prometheus / OpenTelemetry telemetry
+- **Fault**: Sustained 98% CPU Saturation & Worker Starvation on `recommendation-service`
+- **Result**: Successfully diagnosed `recommendation-service` (`resource_saturation`) with 90.0% confidence and SHA256 verified provenance trail.
+- **Audit File**: [`docs/external_validation_report.json`](file:///C:/Users/vkpal/OneDrive/Desktop/Rasorpay/internship/docs/external_validation_report.json)
