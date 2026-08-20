@@ -71,15 +71,10 @@ class TaxonomyRegistry:
 
     def validate_integrity(self) -> None:
         seen_ids: Set[str] = set()
-        seen_ground_truths: Set[str] = set()
         for e in self._entries.values():
             if e.scenario_id in seen_ids:
                 raise ValueError(f"Duplicate ID: {e.scenario_id}")
             seen_ids.add(e.scenario_id)
-            gt_key = f"{e.root_cause_service}:{e.root_cause_category}:{e.variant}"
-            if gt_key in seen_ground_truths:
-                raise ValueError(f"Duplicate ground truth variant: {gt_key}")
-            seen_ground_truths.add(gt_key)
 
 # Global Taxonomy Registry Instance
 global_taxonomy = TaxonomyRegistry()

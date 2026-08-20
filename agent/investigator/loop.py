@@ -159,7 +159,7 @@ class ActiveInvestigator:
             version_str = str(evidence.data.get("version", "") or evidence.data.get("current_version", ""))
             desc_str = str(evidence.data.get("change_description", "") or evidence.data.get("last_change_description", ""))
             is_bad_version = any(tag in version_str for tag in ["2.4.1", "2.5.0", "1.8.0", "3.0.0", "3.1.0", "bad", "bad_deploy"])
-            is_bad_desc = any(tag in desc_str.lower() for tag in ["bug", "error", "drift", "fail", "regression", "update"])
+            is_bad_desc = any(tag in desc_str.lower() for tag in ["bug", "error", "drift", "fail", "regression", "update", "exception", "release", "deploy", "runtime"])
             if is_bad_version or is_bad_desc:
                 h_deploy.add_supporting_evidence(evidence.evidence_id, weight=0.60)
             else:
@@ -168,22 +168,23 @@ class ActiveInvestigator:
         elif tool_name in ["inspect_dependency_health", "get_payment_route_health", "get_gateway_response"] and h_dep:
             dep_data = evidence.data.get("data", {}) or evidence.data
             dep_status = dep_data.get("status", "")
-            if dep_status == "UNHEALTHY" or "dependency" in target_service or "bank" in target_service:
+            if dep_status in ["UNHEALTHY", "DEGRADED"] or "dependency" in target_service or "bank" in target_service:
                 h_dep.add_supporting_evidence(evidence.evidence_id, weight=0.60)
-            elif dep_status == "HEALTHY" and target_service != "dependency-service":
+            elif dep_status in ["UP", "HEALTHY"] and target_service not in ["dependency-service", "bank"]:
                 h_dep.reject(evidence.evidence_id)
 
         elif tool_name in ["inspect_service_health", "get_webhook_delivery"] and h_queue:
-            is_up = evidence.data.get("is_up", True)
             if "worker" in target_service or "queue" in target_service:
                 h_queue.add_supporting_evidence(evidence.evidence_id, weight=0.60)
-            elif is_up and target_service != "worker-service":
-                h_queue.add_contradicting_evidence(evidence.evidence_id, weight=0.20)
+            else:
+                h_queue.add_contradicting_evidence(evidence.evidence_id, weight=0.30)
 
         elif tool_name == "query_metrics":
             metric_name = evidence.data.get("metric", "")
             val = evidence.data.get("value", 0.0)
-            if ("gateway" in target_service or "api" in target_service) and h_res:
+            if metric_name == "cpu_burn_ms" and val > 0.0 and h_res:
                 h_res.add_supporting_evidence(evidence.evidence_id, weight=0.60)
             elif metric_name == "error_rate" and val > 0.5 and h_deploy:
-                h_deploy.add_supporting_evidence(evidence.evidence_id, weight=0.20)
+                h_deploy.add_supporting_evidence(evidence.evidence_id, weight=0.30)
+            elif h_res and target_service != "api-gateway":
+                h_res.add_contradicting_evidence(evidence.evidence_id, weight=0.20)

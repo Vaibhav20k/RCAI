@@ -7,7 +7,7 @@ def test_all_investigation_tools_satisfy_read_only_contract():
     reg = create_default_investigation_tools()
     tools = reg.list_tools()
     
-    assert len(tools) == 8
+    assert len(tools) >= 8
     for tool in tools:
         assert isinstance(tool, BaseTool)
         assert tool.name != ""

@@ -394,3 +394,5 @@ SCENARIO_MAP: Dict[str, ScenarioDefinition] = {
 
 def get_scenario_by_id(scenario_id: str) -> Optional[ScenarioDefinition]:
     return SCENARIO_MAP.get(scenario_id)
+
+get_scenario = get_scenario_by_id
