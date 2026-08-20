@@ -84,7 +84,7 @@ class TaxonomyRegistry:
 # Global Taxonomy Registry Instance
 global_taxonomy = TaxonomyRegistry()
 
-# Register initial v1 baseline scenarios
+# 1. DATABASE
 global_taxonomy.register(TaxonomyEntry(
     scenario_id="scenario_db_regression_order",
     family=ScenarioFamily.DATABASE,
@@ -100,7 +100,38 @@ global_taxonomy.register(TaxonomyEntry(
     payment_domain=False,
     adversarial=False
 ))
+global_taxonomy.register(TaxonomyEntry(
+    scenario_id="scenario_db_pool_exhaustion",
+    family=ScenarioFamily.DATABASE,
+    variant="connection_pool_exhaustion",
+    difficulty=ScenarioDifficulty.MEDIUM,
+    split=DatasetSplit.DEVELOPMENT,
+    ground_truth_root_cause="Database connection pool exhaustion on order-service",
+    root_cause_service="order-service",
+    root_cause_category="database",
+    required_evidence=["query_db_metrics"],
+    allowed_actions=["optimize_db_index"],
+    expected_outcome="RESOLVED",
+    payment_domain=False,
+    adversarial=False
+))
+global_taxonomy.register(TaxonomyEntry(
+    scenario_id="scenario_db_lock_contention",
+    family=ScenarioFamily.DATABASE,
+    variant="row_level_lock_contention",
+    difficulty=ScenarioDifficulty.HARD,
+    split=DatasetSplit.VALIDATION,
+    ground_truth_root_cause="Database row-level lock contention on payment-service",
+    root_cause_service="payment-service",
+    root_cause_category="database",
+    required_evidence=["query_db_metrics"],
+    allowed_actions=["optimize_db_index"],
+    expected_outcome="RESOLVED",
+    payment_domain=True,
+    adversarial=False
+))
 
+# 2. DEPLOYMENT
 global_taxonomy.register(TaxonomyEntry(
     scenario_id="scenario_bad_deploy_payment",
     family=ScenarioFamily.DEPLOYMENT,
@@ -116,7 +147,38 @@ global_taxonomy.register(TaxonomyEntry(
     payment_domain=True,
     adversarial=False
 ))
+global_taxonomy.register(TaxonomyEntry(
+    scenario_id="scenario_deploy_partial_canary",
+    family=ScenarioFamily.DEPLOYMENT,
+    variant="canary_deserialization_fault",
+    difficulty=ScenarioDifficulty.MEDIUM,
+    split=DatasetSplit.DEVELOPMENT,
+    ground_truth_root_cause="Buggy canary deployment v1.8.0 in order-service",
+    root_cause_service="order-service",
+    root_cause_category="deployment",
+    required_evidence=["inspect_deployment_history", "compare_versions"],
+    allowed_actions=["rollback_version"],
+    expected_outcome="RESOLVED",
+    payment_domain=False,
+    adversarial=False
+))
+global_taxonomy.register(TaxonomyEntry(
+    scenario_id="scenario_deploy_config_drift",
+    family=ScenarioFamily.DEPLOYMENT,
+    variant="routing_table_config_drift",
+    difficulty=ScenarioDifficulty.HARD,
+    split=DatasetSplit.VALIDATION,
+    ground_truth_root_cause="Configuration drift deployment in api-gateway",
+    root_cause_service="api-gateway",
+    root_cause_category="deployment",
+    required_evidence=["inspect_deployment_history", "compare_versions"],
+    allowed_actions=["rollback_version"],
+    expected_outcome="RESOLVED",
+    payment_domain=False,
+    adversarial=False
+))
 
+# 3. DEPENDENCY
 global_taxonomy.register(TaxonomyEntry(
     scenario_id="scenario_dependency_latency_bank",
     family=ScenarioFamily.DEPENDENCY,
@@ -132,7 +194,38 @@ global_taxonomy.register(TaxonomyEntry(
     payment_domain=True,
     adversarial=False
 ))
+global_taxonomy.register(TaxonomyEntry(
+    scenario_id="scenario_dependency_timeout",
+    family=ScenarioFamily.DEPENDENCY,
+    variant="partner_bank_total_timeout",
+    difficulty=ScenarioDifficulty.HARD,
+    split=DatasetSplit.VALIDATION,
+    ground_truth_root_cause="Third-party bank API connection timeout",
+    root_cause_service="dependency-service",
+    root_cause_category="dependency",
+    required_evidence=["inspect_dependency_health"],
+    allowed_actions=["circuit_breaker"],
+    expected_outcome="RESOLVED",
+    payment_domain=True,
+    adversarial=False
+))
+global_taxonomy.register(TaxonomyEntry(
+    scenario_id="scenario_dependency_503_flap",
+    family=ScenarioFamily.DEPENDENCY,
+    variant="partner_bank_flapping_503",
+    difficulty=ScenarioDifficulty.MEDIUM,
+    split=DatasetSplit.DEVELOPMENT,
+    ground_truth_root_cause="Downstream partner bank gateway flapping failures",
+    root_cause_service="dependency-service",
+    root_cause_category="dependency",
+    required_evidence=["inspect_dependency_health"],
+    allowed_actions=["circuit_breaker"],
+    expected_outcome="RESOLVED",
+    payment_domain=True,
+    adversarial=False
+))
 
+# 4. RESOURCE
 global_taxonomy.register(TaxonomyEntry(
     scenario_id="scenario_resource_saturation_gateway",
     family=ScenarioFamily.RESOURCE,
@@ -148,7 +241,38 @@ global_taxonomy.register(TaxonomyEntry(
     payment_domain=False,
     adversarial=False
 ))
+global_taxonomy.register(TaxonomyEntry(
+    scenario_id="scenario_resource_memory_leak",
+    family=ScenarioFamily.RESOURCE,
+    variant="gc_pause_memory_pressure",
+    difficulty=ScenarioDifficulty.HARD,
+    split=DatasetSplit.VALIDATION,
+    ground_truth_root_cause="Memory pressure and garbage collection pause in payment-service",
+    root_cause_service="payment-service",
+    root_cause_category="resource",
+    required_evidence=["query_metrics"],
+    allowed_actions=["restart_workers"],
+    expected_outcome="RESOLVED",
+    payment_domain=True,
+    adversarial=False
+))
+global_taxonomy.register(TaxonomyEntry(
+    scenario_id="scenario_resource_thread_starvation",
+    family=ScenarioFamily.RESOURCE,
+    variant="worker_thread_exhaustion",
+    difficulty=ScenarioDifficulty.HARD,
+    split=DatasetSplit.DEVELOPMENT,
+    ground_truth_root_cause="Worker thread starvation in order-service",
+    root_cause_service="order-service",
+    root_cause_category="resource",
+    required_evidence=["query_metrics"],
+    allowed_actions=["restart_workers"],
+    expected_outcome="RESOLVED",
+    payment_domain=False,
+    adversarial=False
+))
 
+# 5. QUEUE
 global_taxonomy.register(TaxonomyEntry(
     scenario_id="scenario_queue_backlog_worker",
     family=ScenarioFamily.QUEUE,
@@ -156,6 +280,36 @@ global_taxonomy.register(TaxonomyEntry(
     difficulty=ScenarioDifficulty.MEDIUM,
     split=DatasetSplit.DEVELOPMENT,
     ground_truth_root_cause="Async worker task queue message accumulation",
+    root_cause_service="worker-service",
+    root_cause_category="queue",
+    required_evidence=["inspect_service_health"],
+    allowed_actions=["scale_workers"],
+    expected_outcome="RESOLVED",
+    payment_domain=False,
+    adversarial=False
+))
+global_taxonomy.register(TaxonomyEntry(
+    scenario_id="scenario_queue_poison_pill",
+    family=ScenarioFamily.QUEUE,
+    variant="poison_pill_consumer_blockage",
+    difficulty=ScenarioDifficulty.HARD,
+    split=DatasetSplit.VALIDATION,
+    ground_truth_root_cause="Poison pill message consumer blockage on worker-service",
+    root_cause_service="worker-service",
+    root_cause_category="queue",
+    required_evidence=["inspect_service_health"],
+    allowed_actions=["scale_workers"],
+    expected_outcome="RESOLVED",
+    payment_domain=False,
+    adversarial=False
+))
+global_taxonomy.register(TaxonomyEntry(
+    scenario_id="scenario_queue_burst_backlog",
+    family=ScenarioFamily.QUEUE,
+    variant="flash_sale_producer_burst",
+    difficulty=ScenarioDifficulty.MEDIUM,
+    split=DatasetSplit.DEVELOPMENT,
+    ground_truth_root_cause="Flash sale traffic burst async queue accumulation",
     root_cause_service="worker-service",
     root_cause_category="queue",
     required_evidence=["inspect_service_health"],
