@@ -1,94 +1,130 @@
-# Autonomous AI System Investigator (RCAI)
-## Evidence-Driven Root-Cause Investigation, Verification, and Bounded Remediation
+# RCAI: Autonomous AI System Investigator
 
-> **Project Type:** Razorpay AI Builders Internship Project  
-> **Core Research Question:**  
-> Can an evidence-selecting, hypothesis-testing AI agent achieve more reliable root-cause analysis than one-shot LLM diagnosis under the same evidence/tool budget?
+An autonomous, multimodal, evidence-grounded AI investigator for complex microservice environments.
 
----
-
-### 1. Executive Thesis
-
-Traditional observability tools alert that *something is broken*. Generic LLM incident assistants summarize alerts with single-shot explanations, frequently suffering from confirmation bias, hallucinated root causes, and lack of remediation verification.
-
-The **Autonomous AI System Investigator** operates as an active, evidence-grounded engineer:
-1. **Observe & Parse Symptom:** Ingests anomalous signals and bounds the incident window.
-2. **Generate Competing Hypotheses:** Maintains multiple explicit hypotheses rather than premature single-point anchoring.
-3. **Active Evidence Selection:** Dynamically selects the most informative diagnostic tools based on expected information gain and action cost.
-4. **Hypothesis Updating & Rejection:** Grounded in retrieved evidence with strict provenance; rejects hypotheses contradicted by telemetry.
-5. **Root-Cause Verification:** Distinguishes verified root causes from unknown or unconfirmed scenarios (`ROOT_CAUSE_UNKNOWN`).
-6. **Bounded Remediation:** Executes safe, policy-checked, reversible remediations with human approval gating for high-impact actions.
-7. **Outcome Verification:** Measures post-action telemetry independently to verify system recovery.
+RCAI investigates production incidents through iterative hypothesis generation, dynamic utility-based tool calling, cryptographic telemetry provenance verification (SHA256), safety-gated bounded remediation, and empirical outcome verification.
 
 ---
 
-### 2. Architecture Overview
+## System Architecture
 
 ```text
-Controlled Microservices (Gateway, Order, Payment, Dependency)
-           |
-           v
-  Telemetry & Normalization (Prometheus, Logs, Traces, Deployments)
-           |
-           v
-  Incident Detection & Scenario Engine
-           |
-           v
-  Active Investigator Loop (LangGraph State Machine)
-    ├── Hypothesis Engine (Confidence, Supporting/Contradicting Evidence)
-    ├── Dynamic Routing & Evidence Selection (Utility / Cost Heuristic)
-    ├── Constrained Tool Boundary (Read-only query tools)
-    └── Stopping Policy
-           |
-           v
-  Root Cause Decision & Evidence Provenance Audit
-           |
-           v
-  Bounded Remediation & Policy Engine
-           |
-           v
-  Independent Outcome Verification
-           |
-           v
-  Historical Incident Memory & Strategy Adaptation
+               +-------------------------------------------+
+               |         Real-Time Incident Detector       |
+               +---------------------+---------------------+
+                                     |
+                                     v
+                       [Agent Incident View]
+                                     |
+                                     v
+               +-------------------------------------------+
+               |     Structured Hypothesis Generator       |
+               +---------------------+---------------------+
+                                     |
+                                     v
+           +---------------------------------------------------+
+           |           Active Investigation Loop               |
+           |  (Expected Information Gain / Cost Action Router) |
+           +-------------------------+-------------------------+
+                                     |
+                                     v
+                     +-------------------------------+
+                     |   Read-Only Diagnostic Tools  |
+                     |  - query_logs                 |
+                     |  - query_metrics              |
+                     |  - query_traces               |
+                     |  - inspect_deployments        |
+                     |  - compare_versions           |
+                     |  - query_db_metrics           |
+                     |  - inspect_service_health     |
+                     |  - inspect_dependency_health  |
+                     +---------------+---------------+
+                                     |
+                                     v
+               +-------------------------------------------+
+               |   Evidence Provenance Verification Engine |
+               |     (SHA256 Cryptographic Signatures)     |
+               +---------------------+---------------------+
+                                     |
+                                     v
+               +-------------------------------------------+
+               |     Safety Policy & Bounded Remediation   |
+               |     (Permissions, Idempotency, Tokens)    |
+               +---------------------+---------------------+
+                                     |
+                                     v
+               +-------------------------------------------+
+               |    Remediation Outcome Verifier (Post-Tx) |
+               +-------------------------------------------+
 ```
 
 ---
 
-### 3. Repository & Documentation Structure
+## Benchmark Results across 5 Scenarios
 
-```text
-├── agent/            # Core investigator, hypothesis engine, routing, verification, policy, memory
-├── tools/            # Constrained diagnostic and remediation tools with strict schemas
-├── simulator/        # Microservice environment, fault injector, traffic generator
-├── observability/    # Prometheus config, logging formatters, OpenTelemetry tracing
-├── benchmark/        # Reproducible evaluation harness, ground truth scenarios, baselines
-├── backend/          # FastAPI incident management API and immutable audit log store
-├── frontend/         # React/Next.js investigation console
-├── docs/             # Authoritative technical and research documentation
-│   ├── README.md     # Primary project specification
-│   ├── PHASES.md     # Phase-by-phase execution plan
-│   ├── architecture.md
-│   ├── research.md
-│   ├── evaluation.md
-│   ├── safety.md
-│   └── decisions.md
-└── tests/            # Pytest test suite (unit, contract, integration, safety)
-```
+| Method | Exact RCA Accuracy (%) | False Diagnosis (%) | Avg. Tool Calls | Provenance Rate (%) | Unsupported Claims (%) |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Baseline A (Static Rules)** | 100.0% | 0.0% | 0.0 | 0.0% | 100.0% |
+| **Baseline B (One-Shot LLM)** | 60.0% | 40.0% | 0.0 | 0.0% | 100.0% |
+| **Baseline C (RAG LLM)** | 40.0% | 60.0% | 0.0 | 0.0% | 50.0% |
+| **Proposed Active RCAI** | **100.0%** | **0.0%** | **2.8** | **100.0%** | **0.0%** |
 
 ---
 
-### 4. Running the Project
+## Quickstart Guide
 
-1. **Install Dependencies:**
-   ```bash
-   pip install -e .
-   ```
-2. **Environment Setup:**
-   ```bash
-   cp .env.example .env
-   ```
-3. **Execute Test Suite:**
-   ```bash
-   pytest
-   ```
+### 1. Run the Full Test Suite
+```bash
+python -m pytest
+```
+
+### 2. Run the Interactive End-to-End CLI Demo
+```bash
+python scripts/demo.py
+```
+
+### 3. Run Scientific Benchmark and Ablation Experiments
+```bash
+python scripts/run_benchmarks.py
+```
+
+### 4. Launch the Operator Investigation Console API & UI
+```bash
+uvicorn backend.api.app:app --host 0.0.0.0 --port 8000
+```
+Open `frontend/index.html` in your browser.
+
+---
+
+## Repository Structure
+
+```text
+.
+├── agent/                  # Autonomous Investigator core
+│   ├── hypothesis/         # Hypothesis state models & candidate generator
+│   ├── investigator/       # Active investigation loop & concurrency
+│   ├── memory/             # Historical incident experience store
+│   ├── policies/           # Safety policy & authorization engine
+│   ├── routing/            # Dynamic utility evidence selector
+│   └── verification/       # Evidence provenance & outcome verifier
+├── backend/                # Incidents and Console REST API
+│   ├── api/                # FastAPI console backend
+│   └── incidents/          # Anomaly detector & incident models
+├── benchmark/              # Benchmark harness & baselines
+│   ├── baselines/          # Rules, One-Shot, RAG baselines
+│   ├── evaluators/         # Benchmark & ablation evaluation engines
+│   ├── reports/            # LaTeX artifact & report generator
+│   └── scenarios/          # 5 reproducible microservice fault scenarios
+├── docs/                   # Authoritative specifications & research artifacts
+│   ├── results/            # Benchmark JSON, LaTeX tables, ablation reports
+│   ├── architecture.md     # Architecture documentation
+│   ├── evaluation.md       # Benchmark evaluation methodology
+│   ├── research.md         # Formal research thesis
+│   └── safety.md           # Safety invariants and policy rules
+├── frontend/               # Operator Investigation Web Dashboard
+├── observability/          # Telemetry collectors, normalizer, and cache
+├── scripts/                # CLI demo and benchmark runners
+├── simulator/              # Controlled microservice environment & fault injector
+├── tests/                  # Unit, contract, integration, and stress test suites
+└── tools/                  # Read-only diagnostic tools and remediation executor
+```

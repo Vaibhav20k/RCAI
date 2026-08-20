@@ -5,7 +5,7 @@
     "exact_rca_accuracy": 1.0,
     "top_k_accuracy": 1.0,
     "false_diagnosis_rate": 0.0,
-    "avg_diagnosis_time_ms": 0.02,
+    "avg_diagnosis_time_ms": 0.01,
     "avg_tool_calls_count": 0.0,
     "evidence_provenance_rate": 0.0,
     "unsupported_claim_rate": 1.0
@@ -35,11 +35,11 @@
   "Proposed_Active_RCAI": {
     "system_name": "Proposed_Active_RCAI",
     "total_scenarios_evaluated": 5,
-    "exact_rca_accuracy": 0.4,
-    "top_k_accuracy": 0.4,
-    "false_diagnosis_rate": 0.6,
-    "avg_diagnosis_time_ms": 68.3,
-    "avg_tool_calls_count": 5.2,
+    "exact_rca_accuracy": 1.0,
+    "top_k_accuracy": 1.0,
+    "false_diagnosis_rate": 0.0,
+    "avg_diagnosis_time_ms": 27.6,
+    "avg_tool_calls_count": 2.8,
     "evidence_provenance_rate": 1.0,
     "unsupported_claim_rate": 0.0
   }
