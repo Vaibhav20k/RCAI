@@ -276,3 +276,33 @@ def get_topology():
             "status": "FAULT" if has_fault else "HEALTHY"
         })
     return {"nodes": nodes}
+import json
+from fastapi.responses import StreamingResponse
+
+@app.get("/api/investigate/stream/{incident_id}")
+async def stream_investigation(incident_id: str):
+    inc = incidents_db.get(incident_id)
+    if not inc:
+        raise HTTPException(status_code=404, detail="Incident not found")
+
+    inc.status = IncidentStatus.INVESTIGATING
+    agent_view = inc.to_agent_view()
+    state = investigator.start_investigation(agent_view)
+
+    def event_generator():
+        yield f"data: {json.dumps({"event": "START", "investigation_id": state.investigation_id, "hypotheses": [h.model_dump() for h in state.hypothesis_set.hypotheses]})}\n\n"
+
+        while not state.is_completed:
+            investigator.step(state)
+            last_action = state.action_history[-1].model_dump() if state.action_history else None
+            yield f"data: {json.dumps({"event": "STEP", "current_step": state.current_step, "last_action": last_action, "hypotheses": [h.model_dump() for h in state.hypothesis_set.hypotheses], "budget": {"tool_calls_used": state.current_step, "tool_calls_max": state.budget_max_tool_calls}})}\n\n"
+            time.sleep(0.05)
+
+        investigations_db[state.investigation_id] = state
+        report = verifier.generate_incident_report(state)
+        reports_db[inc.incident_id] = report
+        inc.status = IncidentStatus.ROOT_CAUSE_PROPOSED
+
+        yield f"data: {json.dumps({"event": "COMPLETE", "stop_reason": state.stop_reason, "report": report.model_dump(), "evidence_store": {k: v.model_dump() for k, v in state.evidence_store.items()}})}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
