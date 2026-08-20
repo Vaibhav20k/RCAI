@@ -1,0 +1,44 @@
+{
+  "timestamp": 1787260473.980737,
+  "external_environment": "Google Online Boutique",
+  "topology_nodes": [
+    "frontend-proxy",
+    "recommendation-service",
+    "cart-service",
+    "payment-service"
+  ],
+  "fault_injected": "CPU Saturation on recommendation-service",
+  "scraped_telemetry_count": 3,
+  "investigation_status": "SUCCESS",
+  "root_cause_decision": {
+    "decision_id": "dec_493c414d",
+    "incident_id": "inc_df29961d",
+    "root_cause_service": "recommendation-service",
+    "root_cause_category": "resource",
+    "description": "CPU, memory pressure, or thread starvation on recommendation-service",
+    "confidence": 0.9,
+    "supporting_evidence_ids": [
+      "ev_5fb67307"
+    ],
+    "contradicting_evidence_ids": [],
+    "provenance_audit": [
+      {
+        "evidence_id": "ev_5fb67307",
+        "source": "metrics",
+        "collector": "ExternalPrometheusScraper",
+        "query": "scrape(service=recommendation-service, metric=cpu_utilization)",
+        "hash_signature": "5ad1a6065db0e8f5",
+        "summary": "External metric cpu_utilization=0.98 on recommendation-service",
+        "reliability": 0.99
+      }
+    ],
+    "unresolved_questions": [],
+    "is_unknown": false,
+    "decision_timestamp": 1787260473.980694
+  },
+  "verified_evidence_hashes": [
+    "5ad1a6065db0e8f5",
+    "62d74c6630745a5f",
+    "d9ffa6bdf1c35e78"
+  ]
+}
