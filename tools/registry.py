@@ -1,4 +1,4 @@
-# Investigation Tool Registry
+# Investigation Tool Registry - RCAI v2
 from typing import Dict, List, Optional
 from tools.base import BaseTool, ToolPermission
 from tools.logs.query_logs import QueryLogsTool
@@ -8,6 +8,14 @@ from tools.deployments.inspect_deployments import InspectDeploymentHistoryTool
 from tools.deployments.compare_versions import CompareVersionsTool
 from tools.database.query_db import QueryDatabaseMetricsTool
 from tools.health.inspect_health import InspectServiceHealthTool, InspectDependencyHealthTool
+from tools.payment.tools import (
+    GetPaymentStateTool,
+    GetGatewayResponseTool,
+    GetWebhookDeliveryTool,
+    GetLedgerEntryTool,
+    GetSettlementBatchTool,
+    GetPaymentRouteHealthTool
+)
 from simulator.services.runner import InProcessCluster
 from observability.metrics.collector import MetricsCollector
 
@@ -31,7 +39,7 @@ def create_default_investigation_tools(
     metrics_collector: Optional[MetricsCollector] = None
 ) -> ToolRegistry:
     reg = ToolRegistry()
-    
+
     if cluster and not metrics_collector:
         metrics_collector = MetricsCollector(cluster)
 
@@ -43,5 +51,13 @@ def create_default_investigation_tools(
     reg.register_tool(QueryDatabaseMetricsTool(metrics_collector))
     reg.register_tool(InspectServiceHealthTool(cluster))
     reg.register_tool(InspectDependencyHealthTool(cluster))
-    
+
+    # Register v2 Payment Evidence Tools
+    reg.register_tool(GetPaymentStateTool())
+    reg.register_tool(GetGatewayResponseTool())
+    reg.register_tool(GetWebhookDeliveryTool())
+    reg.register_tool(GetLedgerEntryTool())
+    reg.register_tool(GetSettlementBatchTool())
+    reg.register_tool(GetPaymentRouteHealthTool())
+
     return reg
