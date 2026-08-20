@@ -4,253 +4,322 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RCAI - Autonomous AI System Investigator Console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,600;0,700;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Top Navigation Bar -->
-    <header class="app-header">
-        <div class="brand-group">
-            <div class="brand-badge">RCAI</div>
-            <div class="brand-text">
-                <h1>Autonomous AI System Investigator</h1>
-                <p>Evidence-Grounded Microservice Root-Cause Localization & Safety-Gated Remediation</p>
+    <!-- Top Instrument Header -->
+    <header class="inst-header">
+        <div class="header-brand">
+            <div class="brand-glyph">RCAI</div>
+            <div class="brand-meta">
+                <h1>AUTONOMOUS AI SYSTEM INVESTIGATOR</h1>
+                <p>EVIDENCE-GROUNDED ROOT-CAUSE LOCALIZATION &amp; BOUNDED REMEDIATION</p>
             </div>
         </div>
-        
-        <div class="header-controls">
-            <div class="scenario-picker">
-                <label for="scenario-select">Fault Scenario:</label>
-                <select id="scenario-select"></select>
-                <button id="btn-inject-scenario" class="btn btn-warning">Inject Fault Scenario</button>
+
+        <div class="header-tools">
+            <div class="scenario-inject-bar">
+                <span class="bar-label">FAULT SCENARIO:</span>
+                <select id="scenario-select" class="mono-select"></select>
+                <button id="btn-inject-scenario" class="btn btn-amber">INJECT SCENARIO</button>
             </div>
-            <div class="cluster-status-pill">
-                <span class="pulse-dot"></span>
-                <span id="cluster-status-text">Topology: 5 Microservices Live</span>
+            <div class="system-status-indicator">
+                <span class="status-dot"></span>
+                <span class="mono-status">TOPOLOGY: 5 SERVICES LIVE</span>
             </div>
         </div>
     </header>
 
-    <!-- Main Navigation Tabs -->
-    <nav class="nav-tabs">
-        <button class="tab-btn active" data-tab="tab-investigation">Live Investigation Console</button>
-        <button class="tab-btn" data-tab="tab-evidence">Cryptographic Evidence Explorer</button>
-        <button class="tab-btn" data-tab="tab-benchmarks">Scientific Benchmarks & Ablations</button>
+    <!-- Top Instrument Navigation -->
+    <nav class="inst-nav">
+        <button class="nav-item active" data-tab="tab-investigation">INVESTIGATION</button>
+        <button class="nav-item" data-tab="tab-incidents">INCIDENTS</button>
+        <button class="nav-item" data-tab="tab-evidence">EVIDENCE &amp; PROVENANCE</button>
+        <button class="nav-item" data-tab="tab-benchmarks">BENCHMARKS &amp; ABLATIONS</button>
     </nav>
 
-    <!-- TAB 1: Live Investigation Console -->
-    <main id="tab-investigation" class="tab-content active">
-        <!-- Incident Lifecycle Progress Stepper -->
-        <section class="stepper-card">
+    <!-- TAB 1: Main Investigation Console -->
+    <main id="tab-investigation" class="tab-panel active">
+        <!-- 4-Cell KPI Strip -->
+        <section class="kpi-strip">
+            <div class="kpi-cell">
+                <div class="kpi-label">ACTIVE INCIDENTS</div>
+                <div class="kpi-value mono" id="kpi-active-count">01</div>
+            </div>
+            <div class="kpi-cell">
+                <div class="kpi-label">INVESTIGATION CONFIDENCE</div>
+                <div class="kpi-value mono" id="kpi-confidence">0.0%</div>
+            </div>
+            <div class="kpi-cell">
+                <div class="kpi-label">TOOL BUDGET USED</div>
+                <div class="kpi-value mono" id="kpi-budget">0 / 15</div>
+            </div>
+            <div class="kpi-cell">
+                <div class="kpi-label">VERIFICATION STATUS</div>
+                <div class="kpi-value mono status-unverified" id="kpi-verification">UNVERIFIED</div>
+            </div>
+        </section>
+
+        <!-- 7-Stage Investigation State Stepper -->
+        <section class="stepper-panel">
             <div class="stepper-track" id="lifecycle-stepper">
-                <div class="step-node active" data-stage="DETECTED">
-                    <div class="node-circle">1</div>
-                    <div class="node-label">Detected</div>
+                <div class="step-item active" data-stage="DETECTED">
+                    <div class="step-indicator mono">1</div>
+                    <div class="step-text">DETECTED</div>
                 </div>
-                <div class="step-line"></div>
-                <div class="step-node" data-stage="INVESTIGATING">
-                    <div class="node-circle">2</div>
-                    <div class="node-label">Active Loop</div>
+                <div class="step-separator"></div>
+                <div class="step-item" data-stage="INVESTIGATING">
+                    <div class="step-indicator mono">2</div>
+                    <div class="step-text">ACTIVE INVESTIGATION</div>
                 </div>
-                <div class="step-line"></div>
-                <div class="step-node" data-stage="HYPOTHESES">
-                    <div class="node-circle">3</div>
-                    <div class="node-label">Hypotheses Evaluated</div>
+                <div class="step-separator"></div>
+                <div class="step-item" data-stage="HYPOTHESES">
+                    <div class="step-indicator mono">3</div>
+                    <div class="step-text">HYPOTHESES EVALUATED</div>
                 </div>
-                <div class="step-line"></div>
-                <div class="step-node" data-stage="ROOT_CAUSE_PROPOSED">
-                    <div class="node-circle">4</div>
-                    <div class="node-label">Root Cause Verified</div>
+                <div class="step-separator"></div>
+                <div class="step-item" data-stage="ROOT_CAUSE_PROPOSED">
+                    <div class="step-indicator mono">4</div>
+                    <div class="step-text">ROOT CAUSE VERIFIED</div>
                 </div>
-                <div class="step-line"></div>
-                <div class="step-node" data-stage="REMEDIATION_PENDING">
-                    <div class="node-circle">5</div>
-                    <div class="node-label">Policy Gate</div>
+                <div class="step-separator"></div>
+                <div class="step-item" data-stage="REMEDIATION_PENDING">
+                    <div class="step-indicator mono">5</div>
+                    <div class="step-text">POLICY GATE</div>
                 </div>
-                <div class="step-line"></div>
-                <div class="step-node" data-stage="REMEDIATION_EXECUTED">
-                    <div class="node-circle">6</div>
-                    <div class="node-label">Remediation Executed</div>
+                <div class="step-separator"></div>
+                <div class="step-item" data-stage="REMEDIATION_EXECUTED">
+                    <div class="step-indicator mono">6</div>
+                    <div class="step-text">REMEDIATION EXECUTED</div>
                 </div>
-                <div class="step-line"></div>
-                <div class="step-node" data-stage="RESOLVED">
-                    <div class="node-circle">7</div>
-                    <div class="node-label">Outcome Resolved</div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Active Incident Banner -->
-        <section class="incident-banner card">
-            <div class="banner-main">
-                <div class="banner-header">
-                    <span id="incident-severity-badge" class="badge badge-critical">CRITICAL</span>
-                    <span id="incident-service-pill" class="pill">Service: payment-service</span>
-                    <span id="incident-status-pill" class="pill pill-status">Status: DETECTED</span>
-                    <span id="incident-id-text" class="meta-text">ID: inc_...</span>
-                </div>
-                <h2 id="incident-symptom-title" class="incident-title">Elevated error rate 100.0% on payment-service</h2>
-                <div class="incident-meta-row">
-                    <span><strong>Window:</strong> <span id="incident-window-text">300s window</span></span>
-                    <span><strong>Detection Mechanism:</strong> Prometheus Telemetry Anomaly Scraper</span>
-                </div>
-            </div>
-            <div class="banner-actions">
-                <button id="btn-run-investigation" class="btn btn-primary btn-large">
-                    Run Autonomous Investigation
-                </button>
-                <div class="budget-mini-gauge">
-                    <div class="gauge-label">
-                        <span>Investigation Budget:</span>
-                        <strong id="budget-summary-text">0 / 15 Tool Calls</strong>
-                    </div>
-                    <div class="progress-bar-bg">
-                        <div id="budget-progress-fill" class="progress-bar-fill" style="width: 0%;"></div>
-                    </div>
+                <div class="step-separator"></div>
+                <div class="step-item" data-stage="RESOLVED">
+                    <div class="step-indicator mono">7</div>
+                    <div class="step-text">OUTCOME RESOLVED</div>
                 </div>
             </div>
         </section>
 
-        <!-- Two Column Investigation Grid -->
-        <div class="investigation-grid">
-            <!-- Left Column: Competing Hypotheses & Dynamic Action Routing -->
-            <div class="grid-col">
-                <!-- Competing Hypotheses Board -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3>Competing Hypotheses Board</h3>
-                        <span class="badge badge-info">5 Active Candidates</span>
-                    </div>
-                    <p class="section-desc">The AI maintains competing root-cause hypotheses and dynamically updates confidence via Bayesian evidence integration.</p>
-                    
-                    <div id="hypotheses-container" class="hypotheses-list">
-                        <!-- Populated by JavaScript -->
-                    </div>
+        <!-- Second Row: Active Incident Context + Live Topology Graph -->
+        <div class="grid-row-split">
+            <!-- Active Incident Context -->
+            <div class="panel incident-context-panel">
+                <div class="panel-header">
+                    <span class="panel-tag">INCIDENT CONTEXT</span>
+                    <span id="incident-id-badge" class="badge-mono">ID: --</span>
+                </div>
+                <div class="incident-header-row">
+                    <span id="incident-severity-pill" class="pill pill-critical mono">CRITICAL</span>
+                    <span id="incident-service-pill" class="pill mono">SERVICE: --</span>
+                    <span id="incident-status-pill" class="pill mono">STATE: DETECTED</span>
+                </div>
+                <h2 id="incident-symptom-display" class="incident-symptom">Awaiting fault anomaly detection...</h2>
+                <div class="incident-telemetry-meta">
+                    <div><span class="meta-label">DETECTION WINDOW:</span> <span class="mono" id="incident-window-display">300s window</span></div>
+                    <div><span class="meta-label">SOURCE:</span> <span class="mono">Prometheus Anomaly Detector</span></div>
                 </div>
 
-                <!-- Dynamic Next-Action Selection / Diagnostic Utility Router -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3>Diagnostic Action Selection (Expected Information Gain / Cost)</h3>
-                        <span class="badge badge-purple">Utility Router</span>
-                    </div>
-                    <div id="next-action-details" class="next-action-box">
-                        <p class="placeholder-text">Awaiting investigation start to compute dynamic action utility...</p>
+                <div class="action-cta-row">
+                    <button id="btn-run-investigation" class="btn btn-amber btn-cta">
+                        RUN AUTONOMOUS INVESTIGATION
+                    </button>
+                    <div class="budget-meter">
+                        <div class="meter-labels">
+                            <span>TOOL CALL BUDGET:</span>
+                            <span class="mono" id="budget-meter-text">0 / 15</span>
+                        </div>
+                        <div class="meter-bar-bg">
+                            <div id="budget-meter-fill" class="meter-bar-fill" style="width: 0%;"></div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Right Column: Trajectory Timeline & Verification & Remediation -->
-            <div class="grid-col">
-                <!-- Chronological Investigation Trajectory Timeline -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3>Investigation Trajectory Timeline</h3>
-                        <span id="steps-count-badge" class="badge badge-neutral">0 Steps</span>
-                    </div>
-                    <div id="action-timeline-container" class="timeline-container">
-                        <p class="placeholder-text">No diagnostic actions executed yet.</p>
-                    </div>
+            <!-- Live Functional Topology Graph -->
+            <div class="panel topology-panel">
+                <div class="panel-header">
+                    <span class="panel-tag">MICROSERVICE TOPOLOGY</span>
+                    <span class="panel-subtext">Click service node to inspect telemetry context</span>
+                </div>
+                <div class="topology-diagram" id="topology-graph">
+                    <!-- Populated dynamically via SVG/HTML nodes -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Third Row: Competing Hypotheses Board + Diagnostic Utility Selection -->
+        <div class="grid-row-split">
+            <!-- Hypotheses Board -->
+            <div class="panel hypotheses-board-panel">
+                <div class="panel-header">
+                    <span class="panel-tag">COMPETING HYPOTHESES BOARD</span>
+                    <span class="badge-mono">5 ACTIVE CANDIDATES</span>
+                </div>
+                <p class="panel-subtext">Bayesian evidence accumulation tracks and eliminates competing explanations.</p>
+
+                <div id="hypotheses-list" class="hypotheses-list">
+                    <div class="empty-state">No active hypothesis set generated.</div>
+                </div>
+            </div>
+
+            <!-- Trajectory Timeline + Next-Action Router -->
+            <div class="panel trajectory-panel">
+                <div class="panel-header">
+                    <span class="panel-tag">DIAGNOSTIC NEXT-ACTION ROUTING</span>
+                    <span class="badge-mono">MAX INFORMATION GAIN</span>
                 </div>
 
-                <!-- Root Cause Verification Panel -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3>Evidence-Grounded Root Cause Verification</h3>
-                        <span id="verification-badge" class="badge badge-neutral">UNVERIFIED</span>
-                    </div>
-                    <div id="root-cause-decision-box" class="verification-box">
-                        <p class="placeholder-text">Root cause decision will be generated upon investigation convergence.</p>
-                    </div>
+                <!-- Dynamic Action Selector Box -->
+                <div id="next-action-card" class="next-action-box">
+                    <div class="action-box-empty">Awaiting active investigation loop...</div>
                 </div>
 
-                <!-- Bounded Remediation & Safety Policy Engine -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3>Bounded Remediation & Policy Engine</h3>
-                        <span id="policy-gate-badge" class="badge badge-neutral">POLICY GATED</span>
-                    </div>
-                    <div id="remediation-box" class="remediation-box">
-                        <p class="placeholder-text">Remediation actions are gated until root-cause verification completes.</p>
-                    </div>
-
-                    <!-- Post-Action Outcome Verification Results -->
-                    <div id="outcome-verification-box" class="outcome-box hidden">
-                        <!-- Populated when remediation is executed -->
-                    </div>
+                <div class="timeline-header-row">
+                    <span class="panel-tag">INVESTIGATION TRAJECTORY TIMELINE</span>
+                    <span class="badge-mono" id="trajectory-step-count">0 STEPS</span>
                 </div>
+                <div id="trajectory-timeline" class="trajectory-timeline">
+                    <div class="empty-state">No diagnostic tool calls executed yet.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fourth Row: Root Cause Verification + Bounded Remediation -->
+        <div class="grid-row-split">
+            <!-- Root Cause Verification Panel -->
+            <div class="panel verification-panel">
+                <div class="panel-header">
+                    <span class="panel-tag">EVIDENCE-GROUNDED ROOT CAUSE VERIFICATION</span>
+                    <span id="verif-status-badge" class="badge-mono">UNVERIFIED</span>
+                </div>
+                <div id="verif-card" class="verif-card">
+                    <div class="empty-state">Diagnosis verification will trigger upon investigation convergence.</div>
+                </div>
+            </div>
+
+            <!-- Bounded Remediation & Safety Policy Gate -->
+            <div class="panel remediation-panel">
+                <div class="panel-header">
+                    <span class="panel-tag">BOUNDED REMEDIATION &amp; SAFETY POLICY GATE</span>
+                    <span id="policy-status-badge" class="badge-mono">POLICY GATED</span>
+                </div>
+                <div id="remediation-content" class="remediation-content">
+                    <div class="empty-state">Remediation actions are strictly gated until root-cause diagnosis is verified.</div>
+                </div>
+
+                <!-- Post-Action Outcome Verification -->
+                <div id="outcome-verification-panel" class="outcome-verification-panel hidden"></div>
             </div>
         </div>
     </main>
 
-    <!-- TAB 2: Cryptographic Evidence Explorer -->
-    <main id="tab-evidence" class="tab-content">
-        <div class="card">
-            <div class="card-header">
-                <h2>Cryptographic Evidence Store & Provenance Audit</h2>
-                <div class="filter-group">
-                    <label>Filter Source:</label>
-                    <select id="evidence-source-filter">
-                        <option value="ALL">All Telemetry Sources</option>
-                        <option value="DATABASE">Database</option>
-                        <option value="DEPLOYMENTS">Deployments</option>
-                        <option value="METRICS">Metrics</option>
-                        <option value="LOGS">Logs</option>
-                        <option value="TRACES">Traces</option>
+    <!-- TAB 2: Incidents List & Historical Replay -->
+    <main id="tab-incidents" class="tab-panel">
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-tag">INCIDENT REPOSITORY</span>
+                <span class="panel-subtext">Select an active or historical incident to inspect investigation replay</span>
+            </div>
+            <div class="table-container">
+                <table class="inst-table">
+                    <thead>
+                        <tr>
+                            <th>INCIDENT ID</th>
+                            <th>SERVICE</th>
+                            <th>SEVERITY</th>
+                            <th>SYMPTOM DESCRIPTION</th>
+                            <th>STATUS</th>
+                            <th>DETECTED</th>
+                            <th>ACTION</th>
+                        </tr>
+                    </thead>
+                    <tbody id="incidents-table-body">
+                        <tr><td colspan="7" class="empty-state">Loading incident repository...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- TAB 3: Cryptographic Evidence Explorer -->
+    <main id="tab-evidence" class="tab-panel">
+        <div class="panel">
+            <div class="panel-header-flex">
+                <div>
+                    <span class="panel-tag">CRYPTOGRAPHIC EVIDENCE STORE &amp; PROVENANCE AUDIT</span>
+                    <p class="panel-subtext">All telemetry signals are sealed with SHA256 cryptographic provenance signatures.</p>
+                </div>
+                <div class="filter-controls">
+                    <label class="bar-label">SOURCE:</label>
+                    <select id="evidence-source-filter" class="mono-select">
+                        <option value="ALL">ALL TELEMETRY SOURCES</option>
+                        <option value="DATABASE">DATABASE</option>
+                        <option value="DEPLOYMENTS">DEPLOYMENTS</option>
+                        <option value="METRICS">METRICS</option>
+                        <option value="LOGS">LOGS</option>
+                        <option value="TRACES">TRACES</option>
                     </select>
                 </div>
             </div>
-            <p class="section-desc">Every piece of evidence collected by RCAI is cryptographically sealed with SHA256 provenance hashes to guarantee auditability and eliminate hallucinations.</p>
-            
-            <div id="evidence-grid" class="evidence-grid">
-                <p class="placeholder-text">No evidence records in store. Run an investigation to inspect telemetry provenance.</p>
+
+            <div id="evidence-cards-container" class="evidence-grid">
+                <div class="empty-state">No evidence records in store. Execute an active investigation to collect signals.</div>
             </div>
         </div>
     </main>
 
-    <!-- TAB 3: Scientific Benchmarks & Ablations -->
-    <main id="tab-benchmarks" class="tab-content">
-        <div class="card">
-            <div class="card-header">
-                <h2>Scientific Benchmark Leaderboard (5 Microservice Scenarios)</h2>
-                <button id="btn-refresh-benchmarks" class="btn btn-secondary">Re-evaluate Benchmark</button>
+    <!-- TAB 4: Scientific Benchmarks & Ablations -->
+    <main id="tab-benchmarks" class="tab-panel">
+        <div class="panel">
+            <div class="panel-header-flex">
+                <div>
+                    <span class="panel-tag">SCIENTIFIC BENCHMARK LEADERBOARD (5 SCENARIOS)</span>
+                    <p class="panel-subtext">Direct empirical comparison against Rule Engine, One-Shot LLM, and RAG Baselines.</p>
+                </div>
+                <button id="btn-run-benchmarks" class="btn btn-secondary">RE-EVALUATE BENCHMARK</button>
             </div>
-            <p class="section-desc">Comprehensive comparative evaluation against established baselines under strict equal budgets (max 8 tool calls, max 60s).</p>
-            
-            <div class="table-wrapper">
-                <table class="data-table">
+
+            <div class="table-container">
+                <table class="inst-table">
                     <thead>
                         <tr>
-                            <th>Method</th>
-                            <th>Exact RCA Acc. (%)</th>
-                            <th>False Diagnosis (%)</th>
-                            <th>Avg. Tool Calls</th>
-                            <th>Time (ms)</th>
-                            <th>Provenance Rate (%)</th>
-                            <th>Unsupported Claims (%)</th>
+                            <th>METHOD</th>
+                            <th>EXACT RCA ACC. (%)</th>
+                            <th>FALSE DIAGNOSIS (%)</th>
+                            <th>AVG. TOOL CALLS</th>
+                            <th>AVG. TIME (ms)</th>
+                            <th>PROVENANCE RATE (%)</th>
+                            <th>UNSUPPORTED CLAIMS (%)</th>
                         </tr>
                     </thead>
-                    <tbody id="benchmark-table-body">
-                        <tr><td colspan="7">Loading benchmark evaluations...</td></tr>
+                    <tbody id="benchmark-tbody">
+                        <tr><td colspan="7" class="empty-state">Loading scientific benchmark evaluations...</td></tr>
                     </tbody>
                 </table>
             </div>
 
-            <div class="ablation-section">
-                <h3>Ablation Matrix (Component Impact under Fixed Budget)</h3>
-                <div class="table-wrapper">
-                    <table class="data-table">
+            <div class="ablation-subpanel">
+                <div class="panel-header">
+                    <span class="panel-tag">ABLATION STUDIES (EQUAL BUDGET: 8 TOOL CALLS)</span>
+                    <span class="badge-mono">COMPONENT CONTRIBUTION</span>
+                </div>
+                <div class="table-container">
+                    <table class="inst-table">
                         <thead>
                             <tr>
-                                <th>Ablation Variant</th>
-                                <th>Exact RCA Acc. (%)</th>
-                                <th>False Diagnosis (%)</th>
-                                <th>Provenance Rate (%)</th>
-                                <th>Unsupported Claims (%)</th>
-                                <th>Scientific Finding</th>
+                                <th>ABLATION VARIANT</th>
+                                <th>EXACT ACC. (%)</th>
+                                <th>FALSE DIAG. (%)</th>
+                                <th>PROVENANCE (%)</th>
+                                <th>UNSUPPORTED (%)</th>
+                                <th>SCIENTIFIC FINDING</th>
                             </tr>
                         </thead>
-                        <tbody id="ablation-table-body">
-                            <tr><td colspan="6">Loading ablation studies...</td></tr>
+                        <tbody id="ablation-tbody">
+                            <tr><td colspan="6" class="empty-state">Loading ablation matrix...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -258,9 +327,35 @@
         </div>
     </main>
 
-    <footer class="app-footer">
-        <p>RCAI: Autonomous AI System Investigator | Built with FastAPI, OpenTelemetry, Prometheus & Structured Hypothesis Bayesian Engine</p>
-    </footer>
+    <!-- Confirmation Modal for Bounded Remediation -->
+    <div id="remediation-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <span class="panel-tag">POLICY AUTHORIZATION REQUIRED</span>
+                <span class="badge-mono">SAFETY ENGINE</span>
+            </div>
+            <div class="modal-body" id="modal-body-content">
+                <!-- Content set dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button id="btn-modal-cancel" class="btn btn-secondary">CANCEL</button>
+                <button id="btn-modal-confirm" class="btn btn-amber">CONFIRM REMEDIATION</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Evidence Detail Modal -->
+    <div id="evidence-modal" class="modal-overlay hidden">
+        <div class="modal-card modal-card-large">
+            <div class="modal-header">
+                <span class="panel-tag" id="ev-modal-title">EVIDENCE RECORD</span>
+                <button id="btn-ev-modal-close" class="btn btn-secondary">CLOSE</button>
+            </div>
+            <div class="modal-body" id="ev-modal-body">
+                <!-- JSON Data -->
+            </div>
+        </div>
+    </div>
 
     <script src="app.js"></script>
 </body>

@@ -125,7 +125,7 @@ def get_incident(incident_id: str):
     inc = incidents_db.get(incident_id)
     if not inc:
         raise HTTPException(status_code=404, detail="Incident not found")
-    
+
     # Find matching investigation state if exists
     matching_state = next((s for s in investigations_db.values() if s.incident.incident_id == incident_id), None)
     matching_report = reports_db.get(incident_id)
@@ -160,18 +160,18 @@ def trigger_investigation(incident_id: str):
     inc = incidents_db.get(incident_id)
     if not inc:
         raise HTTPException(status_code=404, detail="Incident not found")
-    
+
     inc.status = IncidentStatus.INVESTIGATING
     agent_view = inc.to_agent_view()
-    
+
     state = investigator.run_investigation(agent_view)
     investigations_db[state.investigation_id] = state
-    
+
     report = verifier.generate_incident_report(state)
     reports_db[inc.incident_id] = report
-    
+
     inc.status = IncidentStatus.ROOT_CAUSE_PROPOSED
-    
+
     return {
         "investigation_id": state.investigation_id,
         "incident_id": inc.incident_id,
@@ -215,7 +215,7 @@ def execute_remediation(req: RemediationRequest):
     inc.status = IncidentStatus.REMEDIATION_PENDING
     pre_metrics = outcome_verifier.capture_metrics_snapshot(req.target_service)
     exec_res = remediation_executor.execute_remediation(proposal)
-    
+
     if exec_res.status.value != "SUCCESS":
         inc.status = IncidentStatus.ESCALATED
         return {
@@ -246,8 +246,33 @@ def get_benchmark_summary():
     bench_results = runner.evaluate_all_systems(ALL_SCENARIOS)
     ablation_runner = AblationExperimentRunner(cluster)
     ablation_results = ablation_runner.run_all_ablations(ALL_SCENARIOS, budget_tool_calls=8)
-    
+
     return {
         "benchmarks": {k: v.model_dump() for k, v in bench_results.items()},
         "ablations": {k: v.model_dump() for k, v in ablation_results.ablation_scores.items()}
     }
+@app.get("/api/topology")
+def get_topology():
+    services = [
+        {"id": "api-gateway", "name": "API Gateway", "type": "gateway", "depends_on": ["order-service", "payment-service"]},
+        {"id": "order-service", "name": "Order Service", "type": "service", "depends_on": ["payment-service", "worker-service", "database"]},
+        {"id": "payment-service", "name": "Payment Service", "type": "service", "depends_on": ["dependency-service", "database"]},
+        {"id": "dependency-service", "name": "Partner Bank API", "type": "dependency", "depends_on": []},
+        {"id": "worker-service", "name": "Worker Queue", "type": "worker", "depends_on": ["queue"]},
+        {"id": "database", "name": "Postgres DB", "type": "infrastructure", "depends_on": []},
+        {"id": "queue", "name": "Redis Stream", "type": "infrastructure", "depends_on": []}
+    ]
+    nodes = []
+    service_map = cluster.get_service_map()
+    for s in services:
+        sid = s["id"]
+        svc_obj = service_map.get(sid)
+        has_fault = False
+        if svc_obj and len(svc_obj.fault_injector.get_active_faults()) > 0:
+            has_fault = True
+        nodes.append({
+            **s,
+            "has_fault": has_fault,
+            "status": "FAULT" if has_fault else "HEALTHY"
+        })
+    return {"nodes": nodes}
