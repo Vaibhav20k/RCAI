@@ -14,6 +14,9 @@ class InvestigationActionRecord(BaseModel):
     result_status: str
     evidence_ids: List[str] = Field(default_factory=list)
     duration_ms: float = 0.0
+    selection_reason: str = ""
+    estimated_cost: float = 1.0
+    hypothesis_impact: List[Dict[str, Any]] = Field(default_factory=list)
     timestamp: float = Field(default_factory=time.time)
 
 class InvestigationState(BaseModel):

@@ -60,19 +60,19 @@ class ActiveInvestigator:
             (a.tool_name, str(a.arguments.get("service", "")))
             for a in state.action_history
         ]
-        next_action = self.selector.select_next_action(
+        next_action_details = self.selector.select_next_action_details(
             state.hypothesis_set,
             executed,
             state.incident.service,
             state.incident.symptom
         )
-        if not next_action:
+        if not next_action_details:
             state.is_completed = True
             state.stop_reason = "NO_FURTHER_ACTIONS"
             state.final_root_cause_hypothesis = state.hypothesis_set.get_top_hypothesis()
             return state
 
-        tool_name, args = next_action
+        tool_name, args, selection_reason, estimated_cost = next_action_details
         tool = self.tool_registry.get_tool(tool_name)
         if not tool:
             state.is_completed = True
@@ -83,11 +83,28 @@ class ActiveInvestigator:
         result = tool.execute(**args)
         duration_ms = (time.perf_counter() - t0) * 1000.0
         
+        prev_conf = {h.hypothesis_id: h.confidence for h in state.hypothesis_set.hypotheses}
+        prev_status = {h.hypothesis_id: h.status for h in state.hypothesis_set.hypotheses}
+
         evidence_ids = []
         for ev in result.evidence:
             state.evidence_store[ev.evidence_id] = ev
             evidence_ids.append(ev.evidence_id)
             self._update_hypotheses_from_evidence(state.hypothesis_set, ev, tool_name, state.incident.service)
+
+        hypothesis_impact = []
+        for h in state.hypothesis_set.hypotheses:
+            if h.confidence != prev_conf.get(h.hypothesis_id, 0.0) or h.status != prev_status.get(h.hypothesis_id, HypothesisStatus.OPEN):
+                diff = round(h.confidence - prev_conf.get(h.hypothesis_id, 0.0), 3)
+                hypothesis_impact.append({
+                    "hypothesis_id": h.hypothesis_id,
+                    "category": h.category.value,
+                    "target_service": h.target_service,
+                    "previous_confidence": prev_conf.get(h.hypothesis_id, 0.0),
+                    "new_confidence": h.confidence,
+                    "status": h.status.value,
+                    "change": diff
+                })
 
         action_rec = InvestigationActionRecord(
             step_index=state.current_step + 1,
@@ -95,7 +112,10 @@ class ActiveInvestigator:
             arguments=args,
             result_status=result.status.value,
             evidence_ids=evidence_ids,
-            duration_ms=duration_ms
+            duration_ms=duration_ms,
+            selection_reason=selection_reason,
+            estimated_cost=estimated_cost,
+            hypothesis_impact=hypothesis_impact
         )
         state.action_history.append(action_rec)
         state.current_step += 1
