@@ -1,4 +1,4 @@
-# Read-Only Payment Domain Diagnostic Evidence Tools for RCAI v2
+# Read-Only Payment Domain Diagnostic Evidence Tools for RCAI v2 (8 Evidence Tools)
 import time
 from typing import Dict, Any, List, Optional
 from tools.base import BaseTool, ToolResult, ToolExecutionStatus, ToolPermission
@@ -114,6 +114,38 @@ class GetWebhookDeliveryTool(BaseTool):
             raw_output=data
         )
 
+class GetEventQueueStateTool(BaseTool):
+    name: str = "get_event_queue_state"
+    description: str = "Inspect asynchronous payment event queue backlog depth and consumer lag"
+    permission_level: ToolPermission = ToolPermission.READ_ONLY
+    cost_estimate: float = 1.0
+
+    def __init__(self, cluster: Optional[PaymentDomainCluster] = None):
+        super().__init__(
+            name="get_event_queue_state",
+            description="Inspect asynchronous payment event queue backlog depth and consumer lag"
+        )
+        self._cluster = cluster
+
+    def execute(self, **kwargs) -> ToolResult:
+        queue_name = kwargs.get("queue_name", "payment_captured_events")
+        data = {"queue_name": queue_name, "pending_count": 0, "consumer_lag_ms": 12.0}
+        ev = NormalizedEvidence.create(
+            source=EvidenceSource.METRICS,
+            evidence_type=EvidenceType.METRIC_SERIES,
+            collector="PaymentQueueMonitor",
+            summary=f"Payment event queue {queue_name} depth and lag metrics",
+            data=data,
+            query=f"get_event_queue_state(queue={queue_name})",
+            reliability=1.0
+        )
+        return ToolResult(
+            tool_name=self.name,
+            status=ToolExecutionStatus.SUCCESS,
+            evidence=[ev],
+            raw_output=data
+        )
+
 class GetLedgerEntryTool(BaseTool):
     name: str = "get_ledger_entry"
     description: str = "Query double-entry financial accounting ledger records"
@@ -201,6 +233,37 @@ class GetPaymentRouteHealthTool(BaseTool):
             summary=f"Payment PSP route health check: {route}",
             data=data,
             query=f"get_payment_route_health(route={route})",
+            reliability=1.0
+        )
+        return ToolResult(
+            tool_name=self.name,
+            status=ToolExecutionStatus.SUCCESS,
+            evidence=[ev],
+            raw_output=data
+        )
+
+class GetReconciliationStateTool(BaseTool):
+    name: str = "get_reconciliation_state"
+    description: str = "Query internal ledger versus external PSP settlement reconciliation discrepancy state"
+    permission_level: ToolPermission = ToolPermission.READ_ONLY
+    cost_estimate: float = 1.0
+
+    def __init__(self, cluster: Optional[PaymentDomainCluster] = None):
+        super().__init__(
+            name="get_reconciliation_state",
+            description="Query internal ledger versus external PSP settlement reconciliation discrepancy state"
+        )
+        self._cluster = cluster
+
+    def execute(self, **kwargs) -> ToolResult:
+        data = {"is_reconciled": True, "discrepancy_count": 0, "unsettled_amount": 0.0}
+        ev = NormalizedEvidence.create(
+            source=EvidenceSource.DATABASE,
+            evidence_type=EvidenceType.DATABASE_METRIC,
+            collector="ReconciliationEngine",
+            summary="Payment reconciliation discrepancy report",
+            data=data,
+            query="get_reconciliation_state()",
             reliability=1.0
         )
         return ToolResult(

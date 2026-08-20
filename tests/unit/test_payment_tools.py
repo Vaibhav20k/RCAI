@@ -1,12 +1,14 @@
-# Unit Tests for Payment Domain Diagnostic Evidence Tools
+# Unit Tests for Payment Domain Diagnostic Evidence Tools (8 Tools)
 import pytest
 from tools.payment.tools import (
     GetPaymentStateTool,
     GetGatewayResponseTool,
     GetWebhookDeliveryTool,
+    GetEventQueueStateTool,
     GetLedgerEntryTool,
     GetSettlementBatchTool,
-    GetPaymentRouteHealthTool
+    GetPaymentRouteHealthTool,
+    GetReconciliationStateTool
 )
 from simulator.payment.cluster import PaymentDomainCluster
 from tools.base import ToolExecutionStatus, ToolPermission
@@ -21,15 +23,18 @@ def payment_cluster():
     )
     return cluster
 
-def test_all_payment_tools_are_read_only(payment_cluster):
+def test_all_eight_payment_tools_are_read_only(payment_cluster):
     tools = [
         GetPaymentStateTool(payment_cluster),
         GetGatewayResponseTool(payment_cluster),
         GetWebhookDeliveryTool(payment_cluster),
+        GetEventQueueStateTool(payment_cluster),
         GetLedgerEntryTool(payment_cluster),
         GetSettlementBatchTool(payment_cluster),
-        GetPaymentRouteHealthTool(payment_cluster)
+        GetPaymentRouteHealthTool(payment_cluster),
+        GetReconciliationStateTool(payment_cluster)
     ]
+    assert len(tools) == 8
     for t in tools:
         assert t.permission_level == ToolPermission.READ_ONLY
         res = t.execute()
