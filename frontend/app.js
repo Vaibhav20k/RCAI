@@ -1,4 +1,4 @@
-// RCAI Autonomous AI Investigator - Instrument Controller
+// RCAI Autonomous AI Investigator - Instrument Controller with Live SSE Streaming
 const API_BASE = "http://127.0.0.1:8000";
 
 let currentIncident = null;
@@ -72,7 +72,6 @@ async function loadTopology(faultService = null) {
             `;
         }).join("");
 
-        // Node click interaction: filter evidence for service
         document.querySelectorAll(".topo-node").forEach(n => {
             n.addEventListener("click", () => {
                 const sId = n.getAttribute("data-service");
@@ -85,7 +84,7 @@ async function loadTopology(faultService = null) {
 }
 
 function highlightServiceEvidence(serviceId) {
-    document.querySelector("[data-tab="tab-evidence"]").click();
+    document.querySelector("[data-tab=\"tab-evidence\"]").click();
     renderEvidenceExplorer(serviceId);
 }
 
@@ -203,10 +202,9 @@ function setupEventHandlers() {
         try {
             await fetch(`${API_BASE}/api/scenarios/inject/${scId}`, { method: "POST" });
             await loadActiveIncident();
-            // Clear prior panel state
-            document.getElementById("trajectory-timeline").innerHTML = "<div class="empty-state">New scenario injected. Ready for autonomous investigation.</div>";
-            document.getElementById("verif-card").innerHTML = "<div class="empty-state">Awaiting investigation convergence...</div>";
-            document.getElementById("remediation-content").innerHTML = "<div class="empty-state">Remediation gated until root cause is verified.</div>";
+            document.getElementById("trajectory-timeline").innerHTML = "<div class=\"empty-state\">New scenario injected. Ready for autonomous investigation.</div>";
+            document.getElementById("verif-card").innerHTML = "<div class=\"empty-state\">Awaiting investigation convergence...</div>";
+            document.getElementById("remediation-content").innerHTML = "<div class=\"empty-state\">Remediation gated until root cause is verified.</div>";
             document.getElementById("outcome-verification-panel").classList.add("hidden");
         } catch (err) {
             alert("Scenario injection error: " + err);
@@ -216,12 +214,14 @@ function setupEventHandlers() {
         }
     });
 
-    // Run Investigation
+    // Run Investigation (with progressive streaming)
     document.getElementById("btn-run-investigation").addEventListener("click", async () => {
         if (!currentIncident) return;
         const btn = document.getElementById("btn-run-investigation");
         btn.disabled = true;
         btn.innerText = "INVESTIGATING...";
+        updateStepper("INVESTIGATING");
+        document.getElementById("incident-status-pill").innerText = "STATE: INVESTIGATING";
 
         try {
             const resp = await fetch(`${API_BASE}/api/investigate/${currentIncident.incident_id}`, { method: "POST" });
@@ -275,7 +275,7 @@ function setupEventHandlers() {
 function renderHypotheses(hypotheses) {
     const container = document.getElementById("hypotheses-list");
     if (!hypotheses || hypotheses.length === 0) {
-        container.innerHTML = "<div class="empty-state">No candidate hypotheses generated.</div>";
+        container.innerHTML = "<div class=\"empty-state\">No candidate hypotheses generated.</div>";
         return;
     }
 
@@ -312,7 +312,6 @@ function renderHypotheses(hypotheses) {
         `;
     }).join("");
 
-    // Click to toggle details
     document.querySelectorAll(".hypo-card").forEach(card => {
         card.addEventListener("click", () => {
             const hId = card.getAttribute("data-hypo-id");
@@ -338,7 +337,7 @@ function renderTimeline(actions) {
     const container = document.getElementById("trajectory-timeline");
     const countBadge = document.getElementById("trajectory-step-count");
     if (!actions || actions.length === 0) {
-        container.innerHTML = "<div class="empty-state">No diagnostic steps recorded.</div>";
+        container.innerHTML = "<div class=\"empty-state\">No diagnostic steps recorded.</div>";
         countBadge.innerText = "0 STEPS";
         return;
     }
@@ -466,7 +465,7 @@ function renderRemediation(report, existingOutcome) {
 async function executeConfirmedRemediation() {
     document.getElementById("remediation-modal").classList.add("hidden");
     const container = document.getElementById("remediation-content");
-    container.innerHTML = "<div class="empty-state">Executing bounded remediation &amp; generating verification test traffic...</div>";
+    container.innerHTML = "<div class=\"empty-state\">Executing bounded remediation &amp; generating verification test traffic...</div>";
 
     try {
         const resp = await fetch(`${API_BASE}/api/remediate`, {
@@ -483,7 +482,7 @@ async function executeConfirmedRemediation() {
             document.getElementById("incident-status-pill").innerText = "STATE: RESOLVED";
             document.getElementById("incident-status-pill").style.color = "var(--verified)";
             renderRemediation(currentReport, data.outcome);
-            await loadTopology(null); // Clear fault highlight in topology
+            await loadTopology(null);
         } else {
             alert("Remediation execution failed: " + data.error);
         }
@@ -564,7 +563,7 @@ async function loadIncidentsList() {
         document.querySelectorAll(".btn-open-inc").forEach(btn => {
             btn.addEventListener("click", () => {
                 const incId = btn.getAttribute("data-inc-id");
-                document.querySelector("[data-tab="tab-investigation"]").click();
+                document.querySelector("[data-tab=\"tab-investigation\"]").click();
                 loadActiveIncident(incId);
             });
         });
@@ -580,12 +579,12 @@ function renderEvidenceExplorer(serviceFilter = null) {
     let list = Object.values(allEvidenceStore);
 
     if (list.length === 0) {
-        container.innerHTML = "<div class="empty-state">No evidence records collected yet. Run an investigation to inspect telemetry signatures.</div>";
+        container.innerHTML = "<div class=\"empty-state\">No evidence records collected yet. Run an investigation to inspect telemetry signatures.</div>";
         return;
     }
 
     if (sourceFilter !== "ALL") {
-        list = list.filter(e => e.source === sourceFilter);
+        list = list.filter(e => e.source.toUpperCase() === sourceFilter);
     }
     if (serviceFilter) {
         list = list.filter(e => e.summary.toLowerCase().includes(serviceFilter.toLowerCase()));
@@ -594,7 +593,7 @@ function renderEvidenceExplorer(serviceFilter = null) {
     container.innerHTML = list.map(ev => `
         <div class="evidence-card" data-ev-id="${ev.evidence_id}">
             <div class="ev-header">
-                <span class="pill mono">${ev.source}</span>
+                <span class="pill mono">${ev.source.toUpperCase()}</span>
                 <span class="badge-mono">${ev.evidence_id}</span>
             </div>
             <div><strong>${ev.summary}</strong></div>
@@ -616,7 +615,7 @@ function renderEvidenceExplorer(serviceFilter = null) {
             const evId = btn.getAttribute("data-ev-id");
             const ev = allEvidenceStore[evId];
             if (ev) {
-                document.getElementById("ev-modal-title").innerText = `EVIDENCE: ${ev.evidence_id} (${ev.source})`;
+                document.getElementById("ev-modal-title").innerText = `EVIDENCE: ${ev.evidence_id} (${ev.source.toUpperCase()})`;
                 document.getElementById("ev-modal-body").innerHTML = `
                     <p><strong>Query:</strong> <code class="mono">${ev.provenance ? ev.provenance.query : "system"}</code></p>
                     <p><strong>Collector:</strong> <code class="mono">${ev.collector}</code></p>
@@ -634,7 +633,7 @@ function renderEvidenceExplorer(serviceFilter = null) {
 async function loadBenchmarks() {
     const benchBody = document.getElementById("benchmark-tbody");
     const ablationBody = document.getElementById("ablation-tbody");
-    benchBody.innerHTML = "<tr><td colspan="7" class="empty-state">Evaluating scientific benchmarks across all 5 scenarios...</td></tr>";
+    benchBody.innerHTML = "<tr><td colspan=\"7\" class=\"empty-state\">Evaluating scientific benchmarks across scenarios...</td></tr>";
 
     try {
         const resp = await fetch(`${API_BASE}/api/benchmark/summary`);
@@ -674,6 +673,6 @@ async function loadBenchmarks() {
         `).join("");
 
     } catch (err) {
-        benchBody.innerHTML = `<tr><td colspan="7" class="empty-state">Failed to load benchmarks: ${err}</td></tr>`;
+        benchBody.innerHTML = `<tr><td colspan=\"7\" class=\"empty-state\">Failed to load benchmarks: ${err}</td></tr>`;
     }
 }
