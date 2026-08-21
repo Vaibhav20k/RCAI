@@ -1070,3 +1070,42 @@ body {
     padding-top: 4px;
     border-top: 1px solid var(--border);
 }
+/* Technical About RCAI Section Styling */
+.about-hero-panel {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+}
+
+.about-pillar-card {
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.about-pillar-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+}
+
+.flow-stage-card {
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.flow-stage-card:hover {
+    border-color: var(--accent);
+}
+
+.math-card {
+    transition: border-color 0.15s ease;
+}
+
+.math-card:hover {
+    border-color: var(--accent-hover);
+}
+
+.hyp-family-card {
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.hyp-family-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+}

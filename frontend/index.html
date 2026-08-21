@@ -48,6 +48,7 @@
         <button class="nav-item" data-tab="tab-incidents">INCIDENT REPOSITORY</button>
         <button class="nav-item" data-tab="tab-evidence">EVIDENCE &amp; PROVENANCE</button>
         <button class="nav-item" data-tab="tab-benchmarks">BENCHMARKS &amp; ABLATIONS</button>
+        <button class="nav-item" data-tab="tab-about">ABOUT RCAI</button>
     </nav>
 
     <!-- TAB 1: Main Investigation Console -->
@@ -387,6 +388,458 @@
             <div class="panel" style="gap:8px;">
                 <span class="panel-tag">WHAT DOES RE-RUN DO?</span>
                 <p style="font-size:12.5px; color:var(--text-secondary);">Clicking <strong>RE-RUN BENCHMARK</strong> re-executes the benchmark runner against the active microservice cluster for all 4 methods and 4 ablation variants, capturing live telemetry and refreshing the display.</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- TAB 5: Technical About RCAI Architecture & Theory -->
+    <main id="tab-about" class="tab-panel">
+        <!-- 1. Hero Overview -->
+        <div class="panel about-hero-panel">
+            <div class="about-hero-header" style="display:flex; align-items:center; gap:14px; margin-bottom:12px;">
+                <span class="brand-glyph" style="font-size:16px;">RCAI</span>
+                <div>
+                    <h2 style="font-size:20px; font-weight:700; color:var(--text-primary);">ABOUT RCAI: ROOT CAUSE ANALYSIS INTELLIGENCE</h2>
+                    <p style="font-size:13px; color:var(--text-secondary); margin-top:2px;">Evidence-Grounded Autonomous System Investigation, Verification, and Bounded Remediation</p>
+                </div>
+            </div>
+
+            <div class="about-definition-box" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px 20px; margin-bottom:16px;">
+                <p style="font-size:14px; line-height:1.6; color:var(--text-primary);">
+                    <strong>RCAI</strong> is an evidence-grounded autonomous investigation system designed to diagnose complex distributed microservice failures. Rather than relying on passive log summarization or static alert heuristics, RCAI actively investigates: it formulates competing root-cause hypotheses, calculates expected information gain to query targeted telemetry, cryptographically seals evidence provenance with SHA-256 signatures, gates remediation through deterministic safety policies, and empirically verifies recovery using post-action traffic probes.
+                </p>
+            </div>
+
+            <div class="about-pillars-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px;">
+                <div class="about-pillar-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px;">
+                    <span class="pillar-num mono" style="font-size:12px; font-weight:700; color:var(--accent);">01</span>
+                    <div class="pillar-title" style="font-size:13.5px; font-weight:700; color:var(--text-primary); margin:4px 0;">Active Epistemic Search</div>
+                    <div class="pillar-desc" style="font-size:12px; color:var(--text-secondary); line-height:1.5;">Executes purposeful diagnostic tool calls based on information gain rather than dumping telemetry into an LLM context window.</div>
+                </div>
+                <div class="about-pillar-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px;">
+                    <span class="pillar-num mono" style="font-size:12px; font-weight:700; color:var(--accent);">02</span>
+                    <div class="pillar-title" style="font-size:13.5px; font-weight:700; color:var(--text-primary); margin:4px 0;">Competing Hypotheses</div>
+                    <div class="pillar-desc" style="font-size:12px; color:var(--text-secondary); line-height:1.5;">Maintains 5 distinct fault families simultaneously, updating belief distributions as supporting and contradicting signals arrive.</div>
+                </div>
+                <div class="about-pillar-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px;">
+                    <span class="pillar-num mono" style="font-size:12px; font-weight:700; color:var(--accent);">03</span>
+                    <div class="pillar-title" style="font-size:13.5px; font-weight:700; color:var(--text-primary); margin:4px 0;">Cryptographic Provenance</div>
+                    <div class="pillar-desc" style="font-size:12px; color:var(--text-secondary); line-height:1.5;">Every collected metric, log, and trace span is normalized and sealed with SHA-256 signatures for tamper-evident audit trails.</div>
+                </div>
+                <div class="about-pillar-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px;">
+                    <span class="pillar-num mono" style="font-size:12px; font-weight:700; color:var(--accent);">04</span>
+                    <div class="pillar-title" style="font-size:13.5px; font-weight:700; color:var(--text-primary); margin:4px 0;">Bounded Safety Gates</div>
+                    <div class="pillar-desc" style="font-size:12px; color:var(--text-secondary); line-height:1.5;">The AI proposes actions, but a deterministic policy engine strictly authorizes them. Direct bash execution is strictly forbidden.</div>
+                </div>
+                <div class="about-pillar-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px;">
+                    <span class="pillar-num mono" style="font-size:12px; font-weight:700; color:var(--accent);">05</span>
+                    <div class="pillar-title" style="font-size:13.5px; font-weight:700; color:var(--text-primary); margin:4px 0;">Empirical Outcome Proof</div>
+                    <div class="pillar-desc" style="font-size:12px; color:var(--text-secondary); line-height:1.5;">Remediation is only declared resolved after independent synthetic traffic probes verify error rates and latencies have normalized.</div>
+                </div>
+                <div class="about-pillar-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px;">
+                    <span class="pillar-num mono" style="font-size:12px; font-weight:700; color:var(--accent);">06</span>
+                    <div class="pillar-title" style="font-size:13.5px; font-weight:700; color:var(--text-primary); margin:4px 0;">Scientific Benchmark Integrity</div>
+                    <div class="pillar-desc" style="font-size:12px; color:var(--text-secondary); line-height:1.5;">Evaluated across a 47-scenario frozen benchmark manifest with strict evaluator isolation preventing ground-truth leakage.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. The Core Investigation Lifecycle Flowchart -->
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <span class="panel-tag">THE AUTONOMOUS INVESTIGATION LIFECYCLE</span>
+                    <p class="panel-subtext">The formal 7-stage state machine governing evidence collection, verification, and controlled remediation.</p>
+                </div>
+                <span class="badge-mono">STATE MACHINE</span>
+            </div>
+
+            <div class="lifecycle-flow-diagram" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-top:8px;">
+                <div class="flow-stage-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px;">
+                    <div class="flow-stage-badge mono" style="font-size:10.5px; color:var(--accent); font-weight:700;">STAGE 1</div>
+                    <div class="flow-stage-title" style="font-size:12.5px; font-weight:700; margin:4px 0;">DETECTED</div>
+                    <p class="flow-stage-desc" style="font-size:11.5px; color:var(--text-secondary); line-height:1.4;">Anomaly detectors capture elevated error rate, latency spike, or queue saturation.</p>
+                </div>
+                <div class="flow-stage-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px;">
+                    <div class="flow-stage-badge mono" style="font-size:10.5px; color:var(--accent); font-weight:700;">STAGE 2</div>
+                    <div class="flow-stage-title" style="font-size:12.5px; font-weight:700; margin:4px 0;">INVESTIGATING</div>
+                    <p class="flow-stage-desc" style="font-size:11.5px; color:var(--text-secondary); line-height:1.4;">Autonomous loop executes targeted telemetry queries within budget limit (15 tool calls max).</p>
+                </div>
+                <div class="flow-stage-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px;">
+                    <div class="flow-stage-badge mono" style="font-size:10.5px; color:var(--accent); font-weight:700;">STAGE 3</div>
+                    <div class="flow-stage-title" style="font-size:12.5px; font-weight:700; margin:4px 0;">HYPOTHESES EVALUATED</div>
+                    <p class="flow-stage-desc" style="font-size:11.5px; color:var(--text-secondary); line-height:1.4;">Belief scores across 5 fault candidate families update dynamically as evidence arrives.</p>
+                </div>
+                <div class="flow-stage-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px;">
+                    <div class="flow-stage-badge mono" style="font-size:10.5px; color:var(--accent); font-weight:700;">STAGE 4</div>
+                    <div class="flow-stage-title" style="font-size:12.5px; font-weight:700; margin:4px 0;">ROOT CAUSE VERIFIED</div>
+                    <p class="flow-stage-desc" style="font-size:11.5px; color:var(--text-secondary); line-height:1.4;">Leading hypothesis verified against confidence threshold (≥ 70%) and cryptographic audit.</p>
+                </div>
+                <div class="flow-stage-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px;">
+                    <div class="flow-stage-badge mono" style="font-size:10.5px; color:var(--accent); font-weight:700;">STAGE 5</div>
+                    <div class="flow-stage-title" style="font-size:12.5px; font-weight:700; margin:4px 0;">POLICY GATE</div>
+                    <p class="flow-stage-desc" style="font-size:11.5px; color:var(--text-secondary); line-height:1.4;">Deterministic policy engine validates service topology, idempotency, and action safety.</p>
+                </div>
+                <div class="flow-stage-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px;">
+                    <div class="flow-stage-badge mono" style="font-size:10.5px; color:var(--accent); font-weight:700;">STAGE 6</div>
+                    <div class="flow-stage-title" style="font-size:12.5px; font-weight:700; margin:4px 0;">REMEDIATION EXECUTED</div>
+                    <p class="flow-stage-desc" style="font-size:11.5px; color:var(--text-secondary); line-height:1.4;">Bounded corrective action applied (e.g. version rollback, index rebuild) with zero bash.</p>
+                </div>
+                <div class="flow-stage-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px;">
+                    <div class="flow-stage-badge mono" style="font-size:10.5px; color:var(--accent); font-weight:700;">STAGE 7</div>
+                    <div class="flow-stage-title" style="font-size:12.5px; font-weight:700; margin:4px 0;">OUTCOME RESOLVED</div>
+                    <p class="flow-stage-desc" style="font-size:11.5px; color:var(--text-secondary); line-height:1.4;">Synthetic traffic generator sends test probes to empirically verify telemetry normalization.</p>
+                </div>
+            </div>
+
+            <div class="alternate-branches-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px; margin-top:14px;">
+                <div class="branch-card" style="background:var(--surface-2); border:1px solid var(--border); border-left: 3px solid var(--critical); padding:12px; border-radius:var(--radius-sm);">
+                    <strong style="color:var(--critical);" class="mono">ROOT_CAUSE_UNKNOWN</strong>
+                    <p style="font-size:12px; color:var(--text-secondary); margin-top:4px;">When evidence is insufficient, contradictory, or ungrounded, RCAI performs <strong>safe refusal</strong> rather than fabricating an uncertain diagnosis.</p>
+                </div>
+                <div class="branch-card" style="background:var(--surface-2); border:1px solid var(--border); border-left: 3px solid var(--critical); padding:12px; border-radius:var(--radius-sm);">
+                    <strong style="color:var(--critical);" class="mono">POLICY BLOCKED</strong>
+                    <p style="font-size:12px; color:var(--text-secondary); margin-top:4px;">If remediation targets an unknown service, duplicate action, or forbidden command, the policy gate blocks execution and escalates safely.</p>
+                </div>
+                <div class="branch-card" style="background:var(--surface-2); border:1px solid var(--border); border-left: 3px solid var(--warning); padding:12px; border-radius:var(--radius-sm);">
+                    <strong style="color:var(--warning);" class="mono">HUMAN APPROVAL REQUIRED</strong>
+                    <p style="font-size:12px; color:var(--text-secondary); margin-top:4px;">High-risk infrastructure operations generate cryptographic approval tokens requiring explicit operator authorization before execution.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Why RCAI vs Static Rules & One-Shot LLMs -->
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <span class="panel-tag">WHY NOT JUST USE STATIC RULES OR ONE-SHOT LLMs?</span>
+                    <p class="panel-subtext">Comparing autonomous evidence-grounded investigation against conventional industry heuristics.</p>
+                </div>
+                <span class="badge-mono">COMPARISON MATRIX</span>
+            </div>
+
+            <div class="table-container">
+                <table class="inst-table">
+                    <thead>
+                        <tr>
+                            <th>DIMENSION</th>
+                            <th>STATIC RULE ENGINES</th>
+                            <th>ONE-SHOT LLM / COPILOTS</th>
+                            <th>PROPOSED ACTIVE RCAI</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Investigation Method</strong></td>
+                            <td>Rigid if-then hardcoded logic</td>
+                            <td>Passive text prompt over uncurated logs</td>
+                            <td><strong style="color:var(--accent);">Active Multi-Step Information-Gain Search</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Ambiguity Handling</strong></td>
+                            <td>Fails on unmodeled/composite faults</td>
+                            <td>Hallucinates root causes (40% error rate)</td>
+                            <td><strong style="color:var(--verified);">Bayesian Competing Hypotheses Tracking</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Evidence Grounding</strong></td>
+                            <td>Zero provenance (100% unbacked)</td>
+                            <td>Zero cryptographic audit trail</td>
+                            <td><strong style="color:var(--verified);">100% SHA-256 Cryptographic Provenance</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Safety &amp; Blast Radius</strong></td>
+                            <td>Fixed scripts only</td>
+                            <td>Unbounded arbitrary shell execution risk</td>
+                            <td><strong style="color:var(--verified);">Deterministic Policy Gate + Bounded Actions</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Verification Model</strong></td>
+                            <td>Assumes script execution = resolved</td>
+                            <td>No post-action empirical verification</td>
+                            <td><strong style="color:var(--verified);">Closed-Loop Synthetic Traffic Probing</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 4. Mathematics & Formulas Behind RCAI -->
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <span class="panel-tag">MATHEMATICS &amp; ALGORITHMS BEHIND RCAI</span>
+                    <p class="panel-subtext">Direct mathematical formulations and heuristic approximations implemented in the RCAI core engine.</p>
+                </div>
+                <span class="badge-mono">ALGORITHMIC GROUNDING</span>
+            </div>
+
+            <div class="math-cards-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:14px;">
+                <!-- Formula 1: Diagnostic Uncertainty Routing -->
+                <div class="math-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-size:13.5px; font-weight:700; color:var(--text-primary);">1. Diagnostic Entropy &amp; Uncertainty Routing</span>
+                        <code class="mono" style="font-size:10.5px; color:var(--accent);">agent/routing/selector.py:54</code>
+                    </div>
+                    <div class="mono" style="background:var(--surface-1); border:1px solid var(--border); padding:8px 12px; border-radius:var(--radius-sm); font-size:12.5px; color:var(--accent); margin-bottom:10px;">
+                        Uncertainty(H) = | p(H) - 0.5 |
+                    </div>
+                    <div style="font-size:12px; color:var(--text-secondary); line-height:1.5;">
+                        <p><strong>Variables:</strong> <code class="mono">p(H) ∈ [0.0, 1.0]</code> is the confidence probability of hypothesis <code class="mono">H</code>.</p>
+                        <p style="margin-top:4px;"><strong>Mechanism:</strong> Sorts active candidates by proximity to maximum binary entropy (<code class="mono">p = 0.5</code>). RCAI selects the diagnostic tool that provides maximum expected information gain to disambiguate the most uncertain candidate.</p>
+                        <p style="margin-top:4px;"><strong>Classification:</strong> Heuristic Approximation of Shannon Information Gain.</p>
+                    </div>
+                </div>
+
+                <!-- Formula 2: Bayesian Evidence Accumulation -->
+                <div class="math-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-size:13.5px; font-weight:700; color:var(--text-primary);">2. Evidence Confidence Accumulation</span>
+                        <code class="mono" style="font-size:10.5px; color:var(--accent);">agent/hypothesis/models.py:38-51</code>
+                    </div>
+                    <div class="mono" style="background:var(--surface-1); border:1px solid var(--border); padding:8px 12px; border-radius:var(--radius-sm); font-size:12px; color:var(--accent); margin-bottom:10px;">
+                        Supporting:   p_{t+1}(H) = min(1.0, p_t(H) + 0.20)<br>
+                        Contradicting: p_{t+1}(H) = max(0.0, p_t(H) - 0.25)
+                    </div>
+                    <div style="font-size:12px; color:var(--text-secondary); line-height:1.5;">
+                        <p><strong>Variables:</strong> <code class="mono">w_sup = 0.20</code>, <code class="mono">w_con = 0.25</code> (asymmetric contradiction penalty).</p>
+                        <p style="margin-top:4px;"><strong>Mechanism:</strong> As normalized telemetry arrives from diagnostic collectors, evidence is mapped to categories. Contradicting signals penalize belief heavier than supporting signals to prevent false-positive lock-in.</p>
+                        <p style="margin-top:4px;"><strong>Classification:</strong> Bounded Additive Belief Update with Asymmetric Penalty.</p>
+                    </div>
+                </div>
+
+                <!-- Formula 3: Cryptographic Provenance Hash -->
+                <div class="math-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-size:13.5px; font-weight:700; color:var(--text-primary);">3. SHA-256 Telemetry Provenance Hash</span>
+                        <code class="mono" style="font-size:10.5px; color:var(--accent);">observability/normalizer.py:28</code>
+                    </div>
+                    <div class="mono" style="background:var(--surface-1); border:1px solid var(--border); padding:8px 12px; border-radius:var(--radius-sm); font-size:11.5px; color:var(--accent); margin-bottom:10px;">
+                        Signature = SHA-256( CanonicalJSON(src, collector, q, ts, data) )
+                    </div>
+                    <div style="font-size:12px; color:var(--text-secondary); line-height:1.5;">
+                        <p><strong>Variables:</strong> Canonical JSON string containing telemetry source, collector identifier, query parameters, timestamp, and raw payload.</p>
+                        <p style="margin-top:4px;"><strong>Mechanism:</strong> Guarantees immutable auditability. The Root Cause Verifier rejects any evidence record whose SHA-256 signature cannot be verified from the raw telemetry payload.</p>
+                        <p style="margin-top:4px;"><strong>Classification:</strong> Cryptographic Hash Function (FIPS 180-4 Standard).</p>
+                    </div>
+                </div>
+
+                <!-- Formula 4: Root Cause Verification Gate -->
+                <div class="math-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-size:13.5px; font-weight:700; color:var(--text-primary);">4. Root Cause Verification Decision Gate</span>
+                        <code class="mono" style="font-size:10.5px; color:var(--accent);">agent/verification/engine.py:42-67</code>
+                    </div>
+                    <div class="mono" style="background:var(--surface-1); border:1px solid var(--border); padding:8px 12px; border-radius:var(--radius-sm); font-size:11.5px; color:var(--accent); margin-bottom:10px;">
+                        Verified(H) ⟺ (p(H) ≥ 0.70) ∧ (|E_sup(H)| ≥ 1) ∧ (∀e: ValidSig(e))
+                    </div>
+                    <div style="font-size:12px; color:var(--text-secondary); line-height:1.5;">
+                        <p><strong>Variables:</strong> <code class="mono">E_sup(H)</code> is the set of supporting evidence IDs for hypothesis <code class="mono">H</code>; <code class="mono">ValidSig(e)</code> validates SHA-256 provenance signature.</p>
+                        <p style="margin-top:4px;"><strong>Mechanism:</strong> Diagnosis is verified if and only if confidence meets or exceeds threshold (<code class="mono">0.70</code>) AND at least one provenanced evidence record exists. Otherwise, RCAI demotes to <code class="mono">ROOT_CAUSE_UNKNOWN</code>.</p>
+                        <p style="margin-top:4px;"><strong>Classification:</strong> Deterministic Multi-Criteria Verification Function.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. Competing Hypothesis Families -->
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <span class="panel-tag">THE 5 COMPETING HYPOTHESIS FAMILIES</span>
+                    <p class="panel-subtext">RCAI evaluates five distinct failure categories on every incident before committing to a root-cause diagnosis.</p>
+                </div>
+                <span class="badge-mono">TAXONOMY</span>
+            </div>
+
+            <div class="hypothesis-families-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px;">
+                <div class="hyp-family-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px;">
+                    <div class="mono" style="font-size:11px; font-weight:700; color:var(--accent);">H1: DATABASE</div>
+                    <div style="font-size:13px; font-weight:700; color:var(--text-primary); margin:4px 0;">Database Latency &amp; Resource Contention</div>
+                    <p style="font-size:12px; color:var(--text-secondary); line-height:1.4;">Unindexed table scans, connection pool exhaustion, database lock contention, slow query regressions.</p>
+                    <div class="mono" style="font-size:11px; color:var(--text-muted); margin-top:6px;">Tool: query_db_metrics</div>
+                </div>
+                <div class="hyp-family-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px;">
+                    <div class="mono" style="font-size:11px; font-weight:700; color:var(--accent);">H2: DEPLOYMENT</div>
+                    <div style="font-size:13px; font-weight:700; color:var(--text-primary); margin:4px 0;">Software Release &amp; Config Drift</div>
+                    <p style="font-size:12px; color:var(--text-secondary); line-height:1.4;">Buggy application release deployment, canary regression, config drift, feature-flag mismatch, schema mismatch.</p>
+                    <div class="mono" style="font-size:11px; color:var(--text-muted); margin-top:6px;">Tool: inspect_deployment_history</div>
+                </div>
+                <div class="hyp-family-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px;">
+                    <div class="mono" style="font-size:11px; font-weight:700; color:var(--accent);">H3: DEPENDENCY</div>
+                    <div style="font-size:13px; font-weight:700; color:var(--text-primary); margin:4px 0;">Third-Party &amp; Partner API Latency</div>
+                    <p style="font-size:12px; color:var(--text-secondary); line-height:1.4;">Downstream partner bank gateway latency spikes, 503 flapping, retry storm amplification, partner API timeouts.</p>
+                    <div class="mono" style="font-size:11px; color:var(--text-muted); margin-top:6px;">Tool: inspect_dependency_health</div>
+                </div>
+                <div class="hyp-family-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px;">
+                    <div class="mono" style="font-size:11px; font-weight:700; color:var(--accent);">H4: RESOURCE</div>
+                    <div style="font-size:13px; font-weight:700; color:var(--text-primary); margin:4px 0;">Resource Saturation &amp; Worker Pressure</div>
+                    <p style="font-size:12px; color:var(--text-secondary); line-height:1.4;">CPU core exhaustion, memory leaks, thread pool starvation, file descriptor exhaustion, I/O disk throttling.</p>
+                    <div class="mono" style="font-size:11px; color:var(--text-muted); margin-top:6px;">Tool: query_metrics</div>
+                </div>
+                <div class="hyp-family-card" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px;">
+                    <div class="mono" style="font-size:11px; font-weight:700; color:var(--accent);">H5: QUEUE</div>
+                    <div style="font-size:13px; font-weight:700; color:var(--text-primary); margin:4px 0;">Asynchronous Queue &amp; Message Backlog</div>
+                    <p style="font-size:12px; color:var(--text-secondary); line-height:1.4;">Async message queue backlog spikes, poison pill messages, stuck consumer worker threads, partition lag.</p>
+                    <div class="mono" style="font-size:11px; color:var(--text-muted); margin-top:6px;">Tool: inspect_service_health</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. Safety & Deterministic Policy Boundaries -->
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <span class="panel-tag">BOUNDED AUTONOMY: AI PROPOSES, DETERMINISTIC POLICY ENFORCES</span>
+                    <p class="panel-subtext">The strict boundary separating AI hypothesis generation from authorized infrastructure execution.</p>
+                </div>
+                <span class="badge-mono" style="color:var(--verified);">SAFETY ARCHITECTURE</span>
+            </div>
+
+            <div class="grid-row-split">
+                <div class="policy-role-card" style="border: 1px solid var(--border); padding:16px; border-radius:var(--radius-sm); background:var(--surface-2);">
+                    <div style="font-weight:700; font-size:13px; color:var(--accent); margin-bottom:8px;" class="mono">WHAT THE AI INVESTIGATOR DOES</div>
+                    <ul style="padding-left:18px; font-size:12.5px; color:var(--text-secondary); line-height:1.6;">
+                        <li>Formulates candidate hypotheses from anomaly symptoms</li>
+                        <li>Calculates expected information gain for diagnostic selection</li>
+                        <li>Executes read-only telemetry queries within budget limit</li>
+                        <li>Proposes bounded remediation actions matching verified diagnosis</li>
+                    </ul>
+                </div>
+
+                <div class="policy-role-card" style="border: 1px solid var(--verified-border); padding:16px; border-radius:var(--radius-sm); background:var(--verified-subtle);">
+                    <div style="font-weight:700; font-size:13px; color:var(--verified); margin-bottom:8px;" class="mono">WHAT THE DETERMINISTIC POLICY ENFORCES</div>
+                    <ul style="padding-left:18px; font-size:12.5px; color:var(--text-primary); line-height:1.6;">
+                        <li><strong>Topology Validation:</strong> Target service must exist in active 5-service topology</li>
+                        <li><strong>Zero Arbitrary Shell:</strong> Direct bash commands are strictly blocked (<code class="mono">FORBIDDEN_COMMAND</code>)</li>
+                        <li><strong>Idempotency Protection:</strong> Duplicate remediation executions are denied</li>
+                        <li><strong>Human Approval Gate:</strong> High-risk operations require explicit approval tokens</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="remediation-table-container" style="margin-top:16px;">
+                <div style="font-weight:700; font-size:12px; margin-bottom:8px;" class="mono">SUPPORTED BOUNDED REMEDIATION ACTIONS:</div>
+                <table class="inst-table">
+                    <thead>
+                        <tr>
+                            <th>ACTION TYPE</th>
+                            <th>TARGETED ROOT CAUSE</th>
+                            <th>BOUNDED SCOPE</th>
+                            <th>SAFETY CONSTRAINT</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code class="mono">rollback_version</code></td>
+                            <td>Deployment / Buggy software release</td>
+                            <td>Reverts service version to previous stable build</td>
+                            <td>Must match recognized service in cluster topology</td>
+                        </tr>
+                        <tr>
+                            <td><code class="mono">optimize_db_index</code></td>
+                            <td>Database query latency regression</td>
+                            <td>Applies pre-validated index rebuild query</td>
+                            <td>Scoped strictly to database query plan table</td>
+                        </tr>
+                        <tr>
+                            <td><code class="mono">restart_workers</code></td>
+                            <td>Resource saturation / thread leak</td>
+                            <td>Recycles worker process pool gracefully</td>
+                            <td>No arbitrary OS process termination allowed</td>
+                        </tr>
+                        <tr>
+                            <td><code class="mono">circuit_breaker</code></td>
+                            <td>Downstream partner gateway latency</td>
+                            <td>Trips protective fallback circuit breaker</td>
+                            <td>Restricted to external dependency integrations</td>
+                        </tr>
+                        <tr>
+                            <td><code class="mono">scale_workers</code></td>
+                            <td>Asynchronous message queue backlog</td>
+                            <td>Scales consumer replica count within quota</td>
+                            <td>Bounded upper replica limit enforced</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 7. Empirical Closed-Loop Outcome Verification -->
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <span class="panel-tag">POST-ACTION EMPIRICAL OUTCOME VERIFICATION</span>
+                    <p class="panel-subtext">Why execution success is never conflated with incident recovery.</p>
+                </div>
+                <span class="badge-mono">CLOSED-LOOP PROOF</span>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                <p style="font-size:13px; color:var(--text-secondary); line-height:1.5;">
+                    Conventional automated tools declare success the moment a script returns exit code <code class="mono">0</code>. RCAI rejects this assumption. An action execution may succeed while the underlying service remains degraded (e.g. rollback succeeded, but database pool remained locked).
+                </p>
+                <div class="verification-metric-strip" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+                    <div style="background:var(--surface-2); border:1px solid var(--border); padding:12px; border-radius:var(--radius-sm);">
+                        <div class="mono" style="font-size:11px; color:var(--text-muted);">METRIC 1</div>
+                        <div style="font-size:13px; font-weight:700; color:var(--text-primary);">Traffic Error Rate</div>
+                        <div style="font-size:11.5px; color:var(--text-secondary); margin-top:2px;">Post-remediation error rate must normalize below ≤ 5.0%</div>
+                    </div>
+                    <div style="background:var(--surface-2); border:1px solid var(--border); padding:12px; border-radius:var(--radius-sm);">
+                        <div class="mono" style="font-size:11px; color:var(--text-muted);">METRIC 2</div>
+                        <div style="font-size:13px; font-weight:700; color:var(--text-primary);">p95 Latency Threshold</div>
+                        <div style="font-size:11.5px; color:var(--text-secondary); margin-top:2px;">Latency p95 must return within normal baseline window (&lt; 80ms)</div>
+                    </div>
+                    <div style="background:var(--surface-2); border:1px solid var(--border); padding:12px; border-radius:var(--radius-sm);">
+                        <div class="mono" style="font-size:11px; color:var(--text-muted);">METRIC 3</div>
+                        <div style="font-size:13px; font-weight:700; color:var(--text-primary);">Active Fault Flags</div>
+                        <div style="font-size:11.5px; color:var(--text-secondary); margin-top:2px;">Simulated and injected fault counters must reach exactly 0</div>
+                    </div>
+                    <div style="background:var(--surface-2); border:1px solid var(--border); padding:12px; border-radius:var(--radius-sm);">
+                        <div class="mono" style="font-size:11px; color:var(--text-muted);">METRIC 4</div>
+                        <div style="font-size:13px; font-weight:700; color:var(--text-primary);">Synthetic Traffic Probes</div>
+                        <div style="font-size:11.5px; color:var(--text-secondary); margin-top:2px;">Dispatches 10 live synthetic HTTP probe requests to verify health</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 8. Limitations & Honest Engineering Disclosures -->
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <span class="panel-tag">CURRENT SYSTEM LIMITATIONS</span>
+                    <p class="panel-subtext">Honest engineering disclosures regarding the scope and boundaries of the RCAI system.</p>
+                </div>
+                <span class="badge-mono">ENGINEERING DISCLOSURES</span>
+            </div>
+
+            <div class="limitations-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px;">
+                <div class="limitation-card" style="background:var(--surface-2); border:1px solid var(--border); padding:14px; border-radius:var(--radius-sm);">
+                    <strong style="font-size:13px; color:var(--accent);" class="mono">1. Route-Level Micro-Localization</strong>
+                    <p style="font-size:12px; color:var(--text-secondary); margin-top:4px;">RCAI localizes faults to the service and component level. Disambiguating sub-function line-level defects requires integration with continuous profiling tools.</p>
+                </div>
+                <div class="limitation-card" style="background:var(--surface-2); border:1px solid var(--border); padding:14px; border-radius:var(--radius-sm);">
+                    <strong style="font-size:13px; color:var(--accent);" class="mono">2. Dynamic Causal Graph Learning</strong>
+                    <p style="font-size:12px; color:var(--text-secondary); margin-top:4px;">Currently operates over declared service topologies and dependency health collectors. Real-time online causal structure discovery via continuous DAG learning represents an ongoing research frontier.</p>
+                </div>
+                <div class="limitation-card" style="background:var(--surface-2); border:1px solid var(--border); padding:14px; border-radius:var(--radius-sm);">
+                    <strong style="font-size:13px; color:var(--accent);" class="mono">3. Multi-Cloud Network Partitions</strong>
+                    <p style="font-size:12px; color:var(--text-secondary); margin-top:4px;">Evaluated in microservice clusters and OpenTelemetry testbeds. Cross-region BGP routing flap partitions require additional eBPF-level telemetry collectors.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 9. Closing Philosophy Statement -->
+        <div class="panel about-closing-panel" style="text-align:center; padding:28px 20px; background:var(--surface-2); border:1px solid var(--accent-border);">
+            <h3 style="font-size:17px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">
+                THE RCAI PHILOSOPHY
+            </h3>
+            <p style="font-size:13.5px; color:var(--text-secondary); max-width:820px; margin:0 auto; line-height:1.6;">
+                RCAI transforms incident management from passive guessing into an evidence-grounded scientific discipline:
+            </p>
+            <div style="font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--accent); margin-top:12px; letter-spacing:0.5px;">
+                DETECT → INVESTIGATE → GROUND IN EVIDENCE → AUTHORIZE SAFELY → VERIFY RECOVERY
             </div>
         </div>
     </main>

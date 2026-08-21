@@ -1,10 +1,12 @@
 # RCAI: Root Cause Analysis Intelligence
 ## Evidence-Driven Autonomous Investigation, Verification, and Bounded Remediation
 
-> **Project Type**: Razorpay AI Builders Internship Project
+> **Live Console (Frontend)**: [https://rcai-six.vercel.app/](https://rcai-six.vercel.app/)
+> **Backend Service**: [https://rcai-backend.onrender.com/](https://rcai-backend.onrender.com/)
+> **Health Check**: [https://rcai-backend.onrender.com/health](https://rcai-backend.onrender.com/health)
 > **Repository**: [https://github.com/Vaibhav20k/RCAI](https://github.com/Vaibhav20k/RCAI)
 > **Status**: Final Frozen Release & Benchmark Manifest (v2.0.0)
-> **Test Suite**: 95/95 Passing Tests
+> **Test Suite**: 97/97 Passing Tests
 
 ---
 
