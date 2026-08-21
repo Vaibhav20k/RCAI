@@ -36,19 +36,24 @@ Conventional LLM incident copilots declare **"This might be a database problem."
 
 ---
 
-## 2. Documentation Map
+## 2. Documentation Directory & Navigation
 
-```
-docs/
-|-- README.md        -> Definitive system overview & architecture
-|-- CONCEPTS.md      -> In-depth theoretical concepts & algorithms
-|-- VISION.md        -> Long-term technical vision & research horizons
-|-- SUBMISSION.md    -> Submission evaluation guide, FAQ & reviewer answers
-|-- evaluation.md    -> Complete empirical evaluation breakdown
-|-- architecture.md  -> Layer-by-layer subsystem contracts
-|-- safety.md        -> Bounded policy engine & deterministic guarantees
-+-- external_validation_report.json -> Machine-readable external audit
-```
+Navigate through the complete technical and research documentation suite:
+
+| Document | Purpose | Key Topics Covered |
+|---|---|---|
+| **[docs/CONCEPTS.md](docs/CONCEPTS.md)** | **Technical Concepts Guide** | Epistemic search, hypothesis state machine, information gain utility, SHA-256 provenance, AI vs deterministic boundaries |
+| **[docs/VISION.md](docs/VISION.md)** | **Project Vision & Horizons** | Beyond passive summarization, current capabilities, learned RL policies, dynamic causal discovery |
+| **[docs/SUBMISSION.md](docs/SUBMISSION.md)** | **Submission & Reviewer Guide** | Submission summary, frozen benchmark results, live demo flow, reviewer FAQ, failure mode analysis |
+| **[docs/evaluation.md](docs/evaluation.md)** | **Empirical Benchmark Suite** | 47-scenario inventory, baseline comparisons, seen vs unseen matrix, adversarial resilience, multi-seed stress data |
+| **[docs/architecture.md](docs/architecture.md)** | **Subsystem Architecture** | Multi-modal collectors, normalizers, active investigator loop, policy gate, outcome verifier |
+| **[docs/safety.md](docs/safety.md)** | **Safety & Policy Engine** | Permission tiers, idempotency guarantees, zero arbitrary bash execution, human approval boundaries |
+| **[docs/external-validation.md](docs/external-validation.md)** | **External OTel Validation** | Google Online Boutique telemetry ingestion, live fault injection, diagnosis report |
+| **[docs/decisions.md](docs/decisions.md)** | **Architecture Decision Records** | Decision log on state machine design, provenance hashing, deterministic safety gates |
+| **[docs/PHASES.md](docs/PHASES.md)** | **v1 Phase Execution Log** | Foundations, telemetry engine, active investigation, baseline implementation records |
+| **[docs/RCAI_V2_MASTER_SPEC.md](docs/RCAI_V2_MASTER_SPEC.md)** | **RCAI v2 Master Specification** | Authoritative v2 expansion specification across payments, adversarial, and generalization |
+| **[docs/RCAI_V2_PHASES.md](docs/RCAI_V2_PHASES.md)** | **v2 Phase Implementation Plan** | 16-phase milestone execution blueprint |
+| **[benchmark_manifest.json](benchmark_manifest.json)** | **Frozen Benchmark Manifest** | Machine-readable audit file locking all 47 scenario IDs, tools, and evaluation settings |
 
 ---
 
@@ -189,7 +194,7 @@ Gateway Router
 - **Telemetry Ingestion**: `ExternalEnvironmentAdapter` scraping Prometheus / OpenTelemetry telemetry endpoints.
 - **Injected Anomaly**: 98% CPU saturation on `recommendation-service` with 220ms latency spikes.
 - **Result**: Successfully diagnosed `recommendation-service` (`resource_saturation`) with 90.0% confidence and SHA-256 verified provenance signatures.
-- **Audit File**: [`docs/external_validation_report.json`](file:///C:/Users/vkpal/OneDrive/Desktop/Rasorpay/internship/docs/external_validation_report.json).
+- **Audit File**: [`docs/external_validation_report.json`](docs/external_validation_report.json).
 
 ---
 
