@@ -23,9 +23,13 @@ from benchmark.evaluators.ablation import AblationExperimentRunner
 
 app = FastAPI(title="RCAI Investigation Console API", version="1.0.0")
 
+import os
+allowed_origins_env = os.environ.get("ALLOWED_ORIGINS", "*")
+allowed_origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins if allowed_origins else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -60,7 +64,12 @@ incidents_db[seed_inc.incident_id] = seed_inc
 
 @app.get("/health")
 def health():
-    return {"status": "UP", "timestamp": time.time()}
+    return {
+        "status": "UP",
+        "service": "rcai-investigation-backend",
+        "version": "2.0.0",
+        "timestamp": time.time()
+    }
 
 @app.get("/api/scenarios")
 def list_scenarios():

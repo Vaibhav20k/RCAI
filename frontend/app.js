@@ -1,5 +1,5 @@
 // RCAI Autonomous AI Investigator - Instrument Controller with Live SSE Streaming
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = window.RCAI_API_URL || window.localStorage.getItem("RCAI_API_URL") || (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" ? "http://127.0.0.1:8000" : "");
 
 let currentIncident = null;
 let currentInvestigation = null;
