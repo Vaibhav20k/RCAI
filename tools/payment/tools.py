@@ -34,7 +34,7 @@ class GetPaymentStateTool(BaseTool):
             source=EvidenceSource.DATABASE,
             evidence_type=EvidenceType.DATABASE_METRIC,
             collector="PaymentStateStore",
-            summary=f"Payment transaction status: {data.get("status", "UNKNOWN")}",
+            summary=f"Payment transaction status: {data.get('status', 'UNKNOWN')}",
             data=data,
             query=f"get_payment_state(order_id={order_id})",
             reliability=1.0
@@ -102,7 +102,7 @@ class GetWebhookDeliveryTool(BaseTool):
             source=EvidenceSource.LOGS,
             evidence_type=EvidenceType.LOG_RECORD,
             collector="WebhookDeliveryStore",
-            summary=f"Webhook delivery status: {data.get("status", "DELIVERED")}",
+            summary=f"Webhook delivery status: {data.get('status', 'DELIVERED')}",
             data=data,
             query=f"get_webhook_delivery(transaction_id={tx_id})",
             reliability=1.0
@@ -198,7 +198,7 @@ class GetSettlementBatchTool(BaseTool):
             source=EvidenceSource.DATABASE,
             evidence_type=EvidenceType.DATABASE_METRIC,
             collector="SettlementReconciliationEngine",
-            summary=f"Settlement payout batch status: {data.get("status", "SETTLED")}",
+            summary=f"Settlement payout batch status: {data.get('status', 'SETTLED')}",
             data=data,
             query=f"get_settlement_batch(merchant_id={merchant_id})",
             reliability=1.0
