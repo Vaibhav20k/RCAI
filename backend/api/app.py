@@ -299,12 +299,14 @@ async def stream_investigation(incident_id: str):
     state = investigator.start_investigation(agent_view)
 
     def event_generator():
-        yield f"data: {json.dumps({"event": "START", "investigation_id": state.investigation_id, "hypotheses": [h.model_dump() for h in state.hypothesis_set.hypotheses]})}\n\n"
+        start_payload = json.dumps({"event": "START", "investigation_id": state.investigation_id, "hypotheses": [h.model_dump() for h in state.hypothesis_set.hypotheses]})
+        yield f"data: {start_payload}\n\n"
 
         while not state.is_completed:
             investigator.step(state)
             last_action = state.action_history[-1].model_dump() if state.action_history else None
-            yield f"data: {json.dumps({"event": "STEP", "current_step": state.current_step, "last_action": last_action, "hypotheses": [h.model_dump() for h in state.hypothesis_set.hypotheses], "budget": {"tool_calls_used": state.current_step, "tool_calls_max": state.budget_max_tool_calls}})}\n\n"
+            step_payload = json.dumps({"event": "STEP", "current_step": state.current_step, "last_action": last_action, "hypotheses": [h.model_dump() for h in state.hypothesis_set.hypotheses], "budget": {"tool_calls_used": state.current_step, "tool_calls_max": state.budget_max_tool_calls}})
+            yield f"data: {step_payload}\n\n"
             time.sleep(0.05)
 
         investigations_db[state.investigation_id] = state
@@ -312,6 +314,7 @@ async def stream_investigation(incident_id: str):
         reports_db[inc.incident_id] = report
         inc.status = IncidentStatus.ROOT_CAUSE_PROPOSED
 
-        yield f"data: {json.dumps({"event": "COMPLETE", "stop_reason": state.stop_reason, "report": report.model_dump(), "evidence_store": {k: v.model_dump() for k, v in state.evidence_store.items()}})}\n\n"
+        complete_payload = json.dumps({"event": "COMPLETE", "stop_reason": state.stop_reason, "report": report.model_dump(), "evidence_store": {k: v.model_dump() for k, v in state.evidence_store.items()}})
+        yield f"data: {complete_payload}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
