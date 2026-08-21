@@ -22,8 +22,17 @@
 
         <div class="header-tools">
             <div class="scenario-inject-bar">
-                <span class="bar-label">FAULT SCENARIO:</span>
-                <select id="scenario-select" class="mono-select"></select>
+                <label for="scenario-select" class="bar-label">FAULT SCENARIO:</label>
+                <select id="scenario-select" class="mono-select" aria-label="Select Fault Scenario">
+                    <option value="scenario_db_regression_order">Database Query Latency Regression [order-service]</option>
+                    <option value="scenario_bad_deploy_payment">Bad Software Deployment Release [payment-service]</option>
+                    <option value="scenario_dependency_latency_bank">Downstream Bank Gateway Latency [dependency-service]</option>
+                    <option value="scenario_resource_saturation_gateway">CPU Resource Saturation [api-gateway]</option>
+                    <option value="scenario_queue_backlog_worker">Asynchronous Queue Message Backlog [worker-service]</option>
+                    <option value="scenario_payment_state_inconsistency">Payment State Inconsistency Drift [payment-service]</option>
+                    <option value="scenario_payment_webhook_degradation">Payment Webhook Delivery Degradation [worker-service]</option>
+                    <option value="scenario_payment_gateway_latency">Partner Bank Gateway Latency Spike [dependency-service]</option>
+                </select>
                 <button id="btn-inject-scenario" class="btn btn-amber">INJECT SCENARIO</button>
             </div>
             <div class="system-status-indicator">

@@ -1,5 +1,8 @@
 // RCAI Autonomous AI Investigator - Instrument Controller with Live SSE Streaming
-const API_BASE = window.RCAI_API_URL || window.localStorage.getItem("RCAI_API_URL") || (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" ? "http://127.0.0.1:8000" : "");
+const DEFAULT_REMOTE_API = "https://rcai-backend.onrender.com";
+const API_BASE = window.RCAI_API_URL ||
+                 window.localStorage.getItem("RCAI_API_URL") ||
+                 (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" ? "http://127.0.0.1:8000" : DEFAULT_REMOTE_API);
 
 let currentIncident = null;
 let currentInvestigation = null;
@@ -42,13 +45,20 @@ function setupNavigation() {
 async function loadScenarios() {
     try {
         const resp = await fetch(`${API_BASE}/api/scenarios`);
+        if (!resp.ok) return;
         const scenarios = await resp.json();
+        if (!Array.isArray(scenarios) || scenarios.length === 0) return;
+
         const select = document.getElementById("scenario-select");
+        const currentVal = select.value;
         select.innerHTML = scenarios.map(sc => `
-            <option value="${sc.scenario_id}">${sc.name} [${sc.service}]</option>
+            <option value="${sc.scenario_id}" ${sc.scenario_id === currentVal ? "selected" : ""}>${sc.name} [${sc.service}]</option>
         `).join("");
+        if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
+            select.value = currentVal;
+        }
     } catch (err) {
-        console.error("Failed to load scenarios:", err);
+        console.warn("Using default scenario catalog (backend loading or remote):", err);
     }
 }
 
