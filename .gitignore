@@ -40,5 +40,5 @@ out/
 
 # Telemetry / Data
 data/
-logs/
+/logs/
 *.log
