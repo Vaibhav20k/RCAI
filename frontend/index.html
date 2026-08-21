@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="terminal">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,8 +15,8 @@
         <div class="header-brand">
             <div class="brand-glyph">RCAI</div>
             <div class="brand-meta">
-                <h1>AUTONOMOUS AI SYSTEM INVESTIGATOR</h1>
-                <p>EVIDENCE-GROUNDED ROOT-CAUSE LOCALIZATION &amp; BOUNDED REMEDIATION</p>
+                <h1>Autonomous AI System Investigator</h1>
+                <p>Evidence-Grounded Root-Cause Investigation &amp; Bounded Remediation</p>
             </div>
         </div>
 
@@ -35,17 +35,17 @@
                 </select>
                 <button id="btn-inject-scenario" class="btn btn-amber">INJECT SCENARIO</button>
             </div>
-            <div class="system-status-indicator">
-                <span class="status-dot"></span>
-                <span class="mono-status">TOPOLOGY: 5 SERVICES LIVE</span>
-            </div>
+
+            <button id="theme-toggle-btn" class="theme-switch-btn" title="Toggle Visual Theme">
+                THEME: TERMINAL
+            </button>
         </div>
     </header>
 
     <!-- Top Instrument Navigation -->
     <nav class="inst-nav">
-        <button class="nav-item active" data-tab="tab-investigation">INVESTIGATION</button>
-        <button class="nav-item" data-tab="tab-incidents">INCIDENTS</button>
+        <button class="nav-item active" data-tab="tab-investigation">INVESTIGATION CONSOLE</button>
+        <button class="nav-item" data-tab="tab-incidents">INCIDENT REPOSITORY</button>
         <button class="nav-item" data-tab="tab-evidence">EVIDENCE &amp; PROVENANCE</button>
         <button class="nav-item" data-tab="tab-benchmarks">BENCHMARKS &amp; ABLATIONS</button>
     </nav>
@@ -112,12 +112,12 @@
             </div>
         </section>
 
-        <!-- Second Row: Active Incident Context + Live Topology Graph -->
+        <!-- Level 1: Primary Incident Context & Live Microservice Topology -->
         <div class="grid-row-split">
             <!-- Active Incident Context -->
             <div class="panel incident-context-panel">
                 <div class="panel-header">
-                    <span class="panel-tag">INCIDENT CONTEXT</span>
+                    <span class="panel-tag">ACTIVE INCIDENT CONTEXT</span>
                     <span id="incident-id-badge" class="badge-mono">ID: --</span>
                 </div>
                 <div class="incident-header-row">
@@ -128,7 +128,7 @@
                 <h2 id="incident-symptom-display" class="incident-symptom">Awaiting fault anomaly detection...</h2>
                 <div class="incident-telemetry-meta">
                     <div><span class="meta-label">DETECTION WINDOW:</span> <span class="mono" id="incident-window-display">300s window</span></div>
-                    <div><span class="meta-label">SOURCE:</span> <span class="mono">Prometheus Anomaly Detector</span></div>
+                    <div><span class="meta-label">DETECTOR:</span> <span class="mono">Prometheus Telemetry Anomaly Guard</span></div>
                 </div>
 
                 <div class="action-cta-row">
@@ -151,15 +151,15 @@
             <div class="panel topology-panel">
                 <div class="panel-header">
                     <span class="panel-tag">MICROSERVICE TOPOLOGY</span>
-                    <span class="panel-subtext">Click service node to inspect telemetry context</span>
+                    <span class="panel-subtext">Click any service node to inspect isolated telemetry</span>
                 </div>
                 <div class="topology-diagram" id="topology-graph">
-                    <!-- Populated dynamically via SVG/HTML nodes -->
+                    <!-- Populated dynamically via nodes -->
                 </div>
             </div>
         </div>
 
-        <!-- Third Row: Competing Hypotheses Board + Diagnostic Utility Selection -->
+        <!-- Level 2: Competing Hypotheses Board + Diagnostic Next-Action Routing -->
         <div class="grid-row-split">
             <!-- Hypotheses Board -->
             <div class="panel hypotheses-board-panel">
@@ -196,7 +196,7 @@
             </div>
         </div>
 
-        <!-- Fourth Row: Root Cause Verification + Bounded Remediation -->
+        <!-- Level 3: Root Cause Verification + Bounded Remediation Gate -->
         <div class="grid-row-split">
             <!-- Root Cause Verification Panel -->
             <div class="panel verification-panel">
@@ -261,7 +261,7 @@
                     <span class="panel-tag">CRYPTOGRAPHIC EVIDENCE STORE &amp; PROVENANCE AUDIT</span>
                     <p class="panel-subtext">All telemetry signals are sealed with SHA256 cryptographic provenance signatures.</p>
                 </div>
-                <div class="filter-controls">
+                <div class="filter-controls" style="display:flex; align-items:center; gap:8px;">
                     <label class="bar-label">SOURCE:</label>
                     <select id="evidence-source-filter" class="mono-select">
                         <option value="ALL">ALL TELEMETRY SOURCES</option>
@@ -282,14 +282,44 @@
 
     <!-- TAB 4: Scientific Benchmarks & Ablations -->
     <main id="tab-benchmarks" class="tab-panel">
-        <div class="panel">
-            <div class="panel-header-flex">
-                <div>
-                    <span class="panel-tag">SCIENTIFIC BENCHMARK LEADERBOARD (5 SCENARIOS)</span>
-                    <p class="panel-subtext">Direct empirical comparison against Rule Engine, One-Shot LLM, and RAG Baselines.</p>
-                </div>
-                <button id="btn-run-benchmarks" class="btn btn-secondary">RE-EVALUATE BENCHMARK</button>
+        <!-- Benchmark Provenance & Metadata Strip -->
+        <section class="kpi-strip">
+            <div class="kpi-cell">
+                <div class="kpi-label">TOTAL SCENARIOS EVALUATED</div>
+                <div class="kpi-value mono" id="bench-kpi-total">47</div>
+                <div class="mono" style="font-size:11px; color:var(--text-muted);" id="bench-kpi-split">25 Gen | 10 Held-out | 6 Pay | 6 Adv</div>
             </div>
+            <div class="kpi-cell">
+                <div class="kpi-label">EVALUATION MANIFEST</div>
+                <div class="kpi-value mono status-verified" id="bench-kpi-manifest">FROZEN</div>
+                <div class="mono" style="font-size:11px; color:var(--text-muted);">v2.0.0-frozen manifest locked</div>
+            </div>
+            <div class="kpi-cell">
+                <div class="kpi-label">EVALUATION STATUS</div>
+                <div class="kpi-value mono status-verified" id="bench-kpi-status">VALIDATED</div>
+                <div class="mono" style="font-size:11px; color:var(--text-muted);" id="bench-kpi-run-source">Precomputed artifact verified</div>
+            </div>
+            <div class="kpi-cell">
+                <div class="kpi-label">REGRESSION TEST SUITE</div>
+                <div class="kpi-value mono status-verified" id="bench-kpi-tests">95/95 PASS</div>
+                <div class="mono" style="font-size:11px; color:var(--text-muted);">Deterministic safety verified</div>
+            </div>
+        </section>
+
+        <!-- Benchmark Leaderboard Panel -->
+        <div class="panel">
+            <div class="panel-header-flex" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                <div>
+                    <span class="panel-tag">SCIENTIFIC BENCHMARK LEADERBOARD (47 SCENARIOS)</span>
+                    <p class="panel-subtext">Validated results from the latest completed benchmark run. Opening this page does not re-run the benchmark suite.</p>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span id="bench-status-badge" class="badge-mono" style="color:var(--verified)">STATUS: VALIDATED ARTIFACT</span>
+                    <button id="btn-run-benchmarks" class="btn btn-amber">RE-RUN BENCHMARK</button>
+                </div>
+            </div>
+
+            <div id="bench-notification-banner" class="hidden" style="padding:10px 14px; border-radius:var(--radius-sm); font-size:12px; margin-top:8px;"></div>
 
             <div class="table-container">
                 <table class="inst-table">
@@ -310,9 +340,18 @@
                 </table>
             </div>
 
-            <div class="ablation-subpanel">
+            <div class="scientific-interpretation" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 16px; font-size:12px; color:var(--text-secondary); margin-top:8px;">
+                <strong style="color:var(--text-primary);">Scientific Interpretation:</strong>
+                Exact RCA Accuracy measures identification of the ground-truth root cause. False Diagnosis measures incorrect declarations. Cryptographic Provenance Rate measures whether final claims are backed by verifiable SHA256 evidence. Unsupported Claims measures unprovenanced assertions.
+            </div>
+
+            <!-- Ablation Studies Subpanel -->
+            <div class="ablation-subpanel" style="margin-top:24px;">
                 <div class="panel-header">
-                    <span class="panel-tag">ABLATION STUDIES (EQUAL BUDGET: 8 TOOL CALLS)</span>
+                    <div>
+                        <span class="panel-tag">ABLATION STUDIES (EQUAL BUDGET: 8 TOOL CALLS)</span>
+                        <p class="panel-subtext">Isolating the contribution of Bayesian active evidence selection, episodic memory, and cryptographic verification.</p>
+                    </div>
                     <span class="badge-mono">COMPONENT CONTRIBUTION</span>
                 </div>
                 <div class="table-container">
@@ -334,6 +373,22 @@
                 </div>
             </div>
         </div>
+
+        <!-- Reviewer Guide: How to Read This Evaluation -->
+        <div class="grid-row-split" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+            <div class="panel" style="gap:8px;">
+                <span class="panel-tag">WHY THIS PAGE EXISTS</span>
+                <p style="font-size:12.5px; color:var(--text-secondary);">The main console demonstrates RCAI's operational workflow. This page evaluates whether the Bayesian active investigation approach performs reliably against baseline methods under reproducible, frozen benchmark conditions.</p>
+            </div>
+            <div class="panel" style="gap:8px;">
+                <span class="panel-tag">WHAT IS PRECOMPUTED?</span>
+                <p style="font-size:12.5px; color:var(--text-secondary);">The displayed results load instantly from the latest completed evaluation run stored in the repository artifact store (<code class="mono">docs/results/</code>). Reviewers do not need to wait for multi-minute benchmark re-runs to inspect results.</p>
+            </div>
+            <div class="panel" style="gap:8px;">
+                <span class="panel-tag">WHAT DOES RE-RUN DO?</span>
+                <p style="font-size:12.5px; color:var(--text-secondary);">Clicking <strong>RE-RUN BENCHMARK</strong> re-executes the benchmark runner against the active microservice cluster for all 4 methods and 4 ablation variants, capturing live telemetry and refreshing the display.</p>
+            </div>
+        </div>
     </main>
 
     <!-- Confirmation Modal for Bounded Remediation -->
@@ -346,7 +401,7 @@
             <div class="modal-body" id="modal-body-content">
                 <!-- Content set dynamically -->
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
                 <button id="btn-modal-cancel" class="btn btn-secondary">CANCEL</button>
                 <button id="btn-modal-confirm" class="btn btn-amber">CONFIRM REMEDIATION</button>
             </div>
@@ -356,12 +411,37 @@
     <!-- Evidence Detail Modal -->
     <div id="evidence-modal" class="modal-overlay hidden">
         <div class="modal-card modal-card-large">
-            <div class="modal-header">
+            <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
                 <span class="panel-tag" id="ev-modal-title">EVIDENCE RECORD</span>
                 <button id="btn-ev-modal-close" class="btn btn-secondary">CLOSE</button>
             </div>
             <div class="modal-body" id="ev-modal-body">
                 <!-- JSON Data -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Benchmark Re-run Confirmation Modal -->
+    <div id="benchmark-run-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <span class="panel-tag">CONFIRM BENCHMARK SUITE EXECUTION</span>
+                <span class="badge-mono">BENCHMARK RUNNER</span>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:13px; color:var(--text-primary); margin-bottom:8px;">
+                    Execute the RCAI benchmark suite against the frozen scenario manifest?
+                </p>
+                <p style="font-size:12px; color:var(--text-secondary); margin-bottom:10px;">
+                    This will run all 4 evaluation methods (Static Rules, One-Shot LLM, RAG LLM, Proposed Active RCAI) and 4 ablation experiments across the active microservice cluster.
+                </p>
+                <div style="background:var(--surface-2); border:1px solid var(--border); padding:10px 12px; border-radius:var(--radius-sm); font-size:11.5px; font-family:var(--font-mono); color:var(--accent);">
+                    Target: 47 Frozen Scenarios | Timeout: 60s/scenario
+                </div>
+            </div>
+            <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
+                <button id="btn-bench-modal-cancel" class="btn btn-secondary">CANCEL</button>
+                <button id="btn-bench-modal-confirm" class="btn btn-amber">EXECUTE BENCHMARK NOW</button>
             </div>
         </div>
     </div>
