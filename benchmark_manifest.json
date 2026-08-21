@@ -1,0 +1,105 @@
+{
+  "version": "2.0.0-frozen",
+  "frozen_at": 1787297541.733547,
+  "git_commit": "00acb50",
+  "total_scenarios_count": 47,
+  "partitions": {
+    "general_microservice": {
+      "count": 25,
+      "split": "DEVELOPMENT",
+      "scenario_ids": [
+        "scenario_db_regression_order",
+        "scenario_db_pool_exhaustion",
+        "scenario_db_lock_contention",
+        "scenario_db_connection_timeout",
+        "scenario_db_partial_degradation",
+        "scenario_bad_deploy_payment",
+        "scenario_deploy_partial_canary",
+        "scenario_deploy_config_drift",
+        "scenario_deploy_feature_flag_regression",
+        "scenario_deploy_schema_migration_mismatch",
+        "scenario_dependency_latency_bank",
+        "scenario_dependency_timeout",
+        "scenario_dependency_503_flap",
+        "scenario_dependency_retry_storm",
+        "scenario_dependency_circuit_breaker_open",
+        "scenario_resource_saturation_gateway",
+        "scenario_resource_memory_leak",
+        "scenario_resource_thread_starvation",
+        "scenario_resource_io_throttling",
+        "scenario_resource_fd_exhaustion",
+        "scenario_queue_backlog_worker",
+        "scenario_queue_poison_pill",
+        "scenario_queue_burst_backlog",
+        "scenario_queue_stuck_consumer",
+        "scenario_queue_partition_lag"
+      ]
+    },
+    "held_out_compositional": {
+      "count": 10,
+      "split": "HELD_OUT_TEST",
+      "scenario_ids": [
+        "scenario_heldout_deploy_plus_db",
+        "scenario_heldout_dep_timeout_plus_queue",
+        "scenario_heldout_canary_plus_route",
+        "scenario_heldout_webhook_delay_plus_queue",
+        "scenario_heldout_cpu_plus_db_pressure",
+        "scenario_heldout_memory_plus_lock",
+        "scenario_heldout_schema_plus_worker",
+        "scenario_heldout_flap_plus_retry",
+        "scenario_heldout_fd_plus_db",
+        "scenario_heldout_poison_plus_burst"
+      ]
+    },
+    "payment_domain": {
+      "count": 6,
+      "split": "DEVELOPMENT",
+      "scenario_ids": [
+        "scenario_payment_state_inconsistency",
+        "scenario_payment_webhook_degradation",
+        "scenario_payment_gateway_latency",
+        "scenario_payment_duplicate_event",
+        "scenario_payment_settlement_mismatch",
+        "scenario_payment_route_degradation"
+      ]
+    },
+    "adversarial_suite": {
+      "count": 6,
+      "split": "HELD_OUT_TEST",
+      "scenario_ids": [
+        "scenario_adv_misleading_log",
+        "scenario_adv_conflicting_timestamps",
+        "scenario_adv_missing_telemetry",
+        "scenario_adv_poisoned_memory",
+        "scenario_adv_prompt_injection",
+        "scenario_adv_dangerous_action"
+      ]
+    }
+  },
+  "registered_tools": {
+    "count": 16,
+    "tools": [
+      "query_logs",
+      "query_metrics",
+      "query_traces",
+      "inspect_deployment_history",
+      "compare_versions",
+      "query_db_metrics",
+      "inspect_service_health",
+      "inspect_dependency_health",
+      "get_payment_state",
+      "get_gateway_response",
+      "get_webhook_delivery",
+      "get_event_queue_state",
+      "get_ledger_entry",
+      "get_settlement_batch",
+      "get_payment_route_health",
+      "get_reconciliation_state"
+    ]
+  },
+  "evaluator_settings": {
+    "confidence_threshold": 0.7,
+    "max_tool_budget": 10,
+    "evaluator_isolation": "STRICT_STRIP_GROUND_TRUTH"
+  }
+}

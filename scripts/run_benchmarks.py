@@ -1,4 +1,4 @@
-# Run Scientific Benchmark, Ablations, and Generalization CLI Tool
+# Run Scientific Benchmark, Ablations, and Generalization CLI Tool - RCAI v2 Frozen
 import sys
 import pathlib
 
@@ -11,22 +11,23 @@ from benchmark.evaluators.multi_seed import MultiSeedStressEvaluator
 from benchmark.scenarios.registry import ALL_SCENARIOS
 from benchmark.scenarios.held_out import HELDOUT_SCENARIOS
 from benchmark.scenarios.payment import PAYMENT_SCENARIOS
+from benchmark.scenarios.adversarial import ADVERSARIAL_SCENARIOS
 
 def main():
-    total_count = len(ALL_SCENARIOS) + len(HELDOUT_SCENARIOS) + len(PAYMENT_SCENARIOS)
+    total_count = len(ALL_SCENARIOS) + len(HELDOUT_SCENARIOS) + len(PAYMENT_SCENARIOS) + len(ADVERSARIAL_SCENARIOS)
     print("=" * 80)
-    print("RCAI v2 Comprehensive Scientific Evaluation Suite")
-    print(f"Total Scenarios: {len(ALL_SCENARIOS)} General + {len(HELDOUT_SCENARIOS)} Held-Out + {len(PAYMENT_SCENARIOS)} Payment = {total_count} Total Scenarios")
+    print("RCAI v2 Comprehensive Scientific Evaluation Suite (FROZEN MANIFEST)")
+    print(f"Total Scenarios: {len(ALL_SCENARIOS)} General + {len(HELDOUT_SCENARIOS)} Held-Out + {len(PAYMENT_SCENARIOS)} Payment + {len(ADVERSARIAL_SCENARIOS)} Adversarial = {total_count} Total")
     print("=" * 80)
 
     cluster = InProcessCluster()
 
-    # 1. Main System Benchmark Matrix
+    # 1. Main System Benchmark Matrix (General Microservice Scenarios)
     bench = BenchmarkRunner(cluster)
-    results = bench.evaluate_all_systems(ALL_SCENARIOS[:5])
+    results = bench.evaluate_all_systems(ALL_SCENARIOS)
 
     print("\n" + "=" * 80)
-    print("1. BENCHMARK COMPARISON MATRIX (Baselines vs Proposed RCAI)")
+    print("1. BENCHMARK COMPARISON MATRIX (25 General Microservice Scenarios)")
     print("=" * 80)
     print("{:<25} | {:<14} | {:<10} | {:<10} | {:<10}".format("Method", "Exact RCA Acc", "False Diag", "Avg Tools", "Prov Rate"))
     print("-" * 80)
@@ -37,8 +38,8 @@ def main():
     # 2. Seen vs Unseen Generalization Matrix
     gen_eval = GeneralizationEvaluator(cluster)
     gen_matrix = gen_eval.evaluate_generalization(
-        seen_scenarios=ALL_SCENARIOS[:3],
-        held_out_scenarios=HELDOUT_SCENARIOS[:3],
+        seen_scenarios=ALL_SCENARIOS,
+        held_out_scenarios=HELDOUT_SCENARIOS,
         payment_scenarios=PAYMENT_SCENARIOS
     )
     print("\n" + "=" * 80)
@@ -53,7 +54,7 @@ def main():
     # 3. Multi-Seed Stress Stability
     multi_seed_eval = MultiSeedStressEvaluator(cluster)
     seed_summary = multi_seed_eval.run_multi_seed_evaluation(
-        scenarios=ALL_SCENARIOS[:3],
+        scenarios=ALL_SCENARIOS[:5],
         seeds=[42, 101, 2024],
         budget_tool_calls=8
     )
