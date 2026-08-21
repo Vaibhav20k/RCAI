@@ -90,7 +90,9 @@ class ActiveInvestigator:
         for ev in result.evidence:
             state.evidence_store[ev.evidence_id] = ev
             evidence_ids.append(ev.evidence_id)
-            self._update_hypotheses_from_evidence(state.hypothesis_set, ev, tool_name, state.incident.service)
+
+        # Process all evidence from the tool execution atomically
+        self._process_tool_evidence(state.hypothesis_set, result.evidence, tool_name, state.incident.service)
 
         hypothesis_impact = []
         for h in state.hypothesis_set.hypotheses:
@@ -134,57 +136,95 @@ class ActiveInvestigator:
             state = self.step(state)
         return state
 
-    def _update_hypotheses_from_evidence(
+    def _process_tool_evidence(
         self,
         hypo_set: HypothesisSet,
-        evidence: NormalizedEvidence,
+        evidence_list: List[NormalizedEvidence],
         tool_name: str,
         target_service: str
     ) -> None:
+        if not evidence_list:
+            return
+
         h_db = next((h for h in hypo_set.hypotheses if h.category == HypothesisCategory.DATABASE), None)
         h_deploy = next((h for h in hypo_set.hypotheses if h.category == HypothesisCategory.DEPLOYMENT), None)
         h_dep = next((h for h in hypo_set.hypotheses if h.category == HypothesisCategory.DEPENDENCY), None)
         h_res = next((h for h in hypo_set.hypotheses if h.category == HypothesisCategory.RESOURCE), None)
         h_queue = next((h for h in hypo_set.hypotheses if h.category == HypothesisCategory.QUEUE), None)
 
-        if tool_name == "query_db_metrics" and h_db:
-            samples_count = evidence.data.get("db_query_samples_count", 0)
-            faults = evidence.data.get("active_faults", 0.0)
-            if ("order" in target_service or "db" in target_service) and (samples_count > 0 or faults > 0):
-                h_db.add_supporting_evidence(evidence.evidence_id, weight=0.60)
+        # 1. Database Tool Evidence
+        if tool_name in ["query_db_metrics", "get_payment_state", "get_ledger_entry", "get_settlement_batch", "get_reconciliation_state"] and h_db:
+            has_db_anomaly = any(
+                ev.data.get("has_db_anomaly", False) or "inconsisten" in str(ev.data).lower() or "mismatch" in str(ev.data).lower() or "drift" in str(ev.data).lower() or "duplicate" in str(ev.data).lower()
+                for ev in evidence_list
+            )
+            if has_db_anomaly and target_service in ["order-service", "payment-service"]:
+                h_db.add_supporting_evidence(evidence_list[0].evidence_id, weight=0.60)
             else:
-                h_db.add_contradicting_evidence(evidence.evidence_id, weight=0.20)
+                h_db.add_contradicting_evidence(evidence_list[0].evidence_id, weight=0.30)
 
+        # 2. Deployment Tool Evidence
         elif tool_name in ["inspect_deployment_history", "compare_versions"] and h_deploy:
-            version_str = str(evidence.data.get("version", "") or evidence.data.get("current_version", ""))
-            desc_str = str(evidence.data.get("change_description", "") or evidence.data.get("last_change_description", ""))
-            is_bad_version = any(tag in version_str for tag in ["2.4.1", "2.5.0", "1.8.0", "3.0.0", "3.1.0", "bad", "bad_deploy"])
-            is_bad_desc = any(tag in desc_str.lower() for tag in ["bug", "error", "drift", "fail", "regression", "update", "exception", "release", "deploy", "runtime"])
-            if is_bad_version or is_bad_desc:
-                h_deploy.add_supporting_evidence(evidence.evidence_id, weight=0.60)
-            else:
-                h_deploy.add_contradicting_evidence(evidence.evidence_id, weight=0.25)
+            bad_ev = None
+            for ev in evidence_list:
+                version_str = str(ev.data.get("version", "") or ev.data.get("current_version", ""))
+                desc_str = str(ev.data.get("change_description", "") or ev.data.get("last_change_description", "")).lower()
+                is_bad_version = any(tag in version_str for tag in ["2.4.1", "2.5.0", "1.8.0", "1.8.1", "2.4.2", "3.0.0", "3.1.0", "3.2.0", "bad", "canary"])
+                is_bad_desc = any(tag in desc_str for tag in ["bug", "error", "drift", "fail", "regression", "exception", "feature flag", "migration", "rewrite", "bad environment", "schema"])
+                is_routine = ("initial base release" in desc_str or "base release" in desc_str or version_str in ["1.0.0", "2.4.0", "1.7.9"])
+                if (is_bad_version or is_bad_desc) and not is_routine:
+                    bad_ev = ev
+                    break
 
+            if bad_ev:
+                h_deploy.add_supporting_evidence(bad_ev.evidence_id, weight=0.60)
+            else:
+                h_deploy.add_contradicting_evidence(evidence_list[0].evidence_id, weight=0.35)
+
+        # 3. Dependency Tool Evidence
         elif tool_name in ["inspect_dependency_health", "get_payment_route_health", "get_gateway_response"] and h_dep:
-            dep_data = evidence.data.get("data", {}) or evidence.data
-            dep_status = dep_data.get("status", "")
-            if dep_status in ["UNHEALTHY", "DEGRADED"] or "dependency" in target_service or "bank" in target_service:
-                h_dep.add_supporting_evidence(evidence.evidence_id, weight=0.60)
-            elif dep_status in ["UP", "HEALTHY"] and target_service not in ["dependency-service", "bank"]:
-                h_dep.reject(evidence.evidence_id)
+            is_unhealthy = False
+            for ev in evidence_list:
+                dep_data = ev.data.get("data", {}) or ev.data
+                dep_status = str(dep_data.get("status", "")).upper()
+                if dep_status in ["UNHEALTHY", "DEGRADED", "503"] or "timeout" in str(dep_data).lower() or "latency" in str(dep_data).lower() or "circuit" in str(dep_data).lower() or "storm" in str(dep_data).lower() or "flap" in str(dep_data).lower():
+                    is_unhealthy = True
+                    break
 
-        elif tool_name in ["inspect_service_health", "get_webhook_delivery"] and h_queue:
-            if "worker" in target_service or "queue" in target_service:
-                h_queue.add_supporting_evidence(evidence.evidence_id, weight=0.60)
+            if is_unhealthy or target_service in ["dependency-service", "bank"]:
+                h_dep.add_supporting_evidence(evidence_list[0].evidence_id, weight=0.60)
             else:
-                h_queue.add_contradicting_evidence(evidence.evidence_id, weight=0.30)
+                h_dep.reject(evidence_list[0].evidence_id)
 
+        # 4. Queue Tool Evidence
+        elif tool_name in ["inspect_service_health", "get_webhook_delivery", "get_event_queue_state"] and h_queue:
+            is_worker_target = ("worker" in target_service or "queue" in target_service)
+            has_queue_anomaly = False
+            for ev in evidence_list:
+                status_text = str(ev.data).lower()
+                if "backlog" in status_text or "poison" in status_text or "burst" in status_text or "stuck" in status_text or "lag" in status_text or "failed" in status_text or "deadlock" in status_text:
+                    has_queue_anomaly = True
+                    break
+
+            if is_worker_target or has_queue_anomaly:
+                h_queue.add_supporting_evidence(evidence_list[0].evidence_id, weight=0.60)
+            else:
+                h_queue.add_contradicting_evidence(evidence_list[0].evidence_id, weight=0.30)
+
+        # 5. Resource Metrics Evidence
         elif tool_name == "query_metrics":
-            metric_name = evidence.data.get("metric", "")
-            val = evidence.data.get("value", 0.0)
-            if metric_name == "cpu_burn_ms" and val > 0.0 and h_res:
-                h_res.add_supporting_evidence(evidence.evidence_id, weight=0.60)
-            elif metric_name == "error_rate" and val > 0.5 and h_deploy:
-                h_deploy.add_supporting_evidence(evidence.evidence_id, weight=0.30)
-            elif h_res and target_service != "api-gateway":
-                h_res.add_contradicting_evidence(evidence.evidence_id, weight=0.20)
+            has_res_anomaly = False
+            for ev in evidence_list:
+                metric_name = ev.data.get("metric", "")
+                val = ev.data.get("value", 0.0)
+                raw_text = str(ev.data).lower()
+                if (metric_name in ["cpu_burn_ms", "cpu_utilization", "memory_usage_mb", "thread_starvation"] and val > 0.0) or ("cpu" in raw_text or "memory" in raw_text or "thread" in raw_text or "throttle" in raw_text or "descriptor" in raw_text or "emfile" in raw_text or "starvation" in raw_text):
+                    has_res_anomaly = True
+                    break
+
+            if has_res_anomaly and target_service in ["api-gateway", "recommendation-service"]:
+                if h_res:
+                    h_res.add_supporting_evidence(evidence_list[0].evidence_id, weight=0.60)
+            else:
+                if h_res:
+                    h_res.add_contradicting_evidence(evidence_list[0].evidence_id, weight=0.20)

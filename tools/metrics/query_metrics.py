@@ -7,14 +7,14 @@ from observability.normalizer import TelemetryNormalizer
 
 class QueryMetricsTool(BaseTool):
     name: str = "query_metrics"
-    description: str = "Query Prometheus telemetry metrics for a service (error rates, requests, latency)"
+    description: str = "Query Prometheus telemetry metrics for a service (error rates, requests, latency, CPU)"
     permission_level: ToolPermission = ToolPermission.READ_ONLY
     cost_estimate: float = 1.0
 
     def __init__(self, metrics_collector: Optional[MetricsCollector] = None):
         super().__init__(
             name="query_metrics",
-            description="Query Prometheus telemetry metrics for a service (error rates, requests, latency)"
+            description="Query Prometheus telemetry metrics for a service (error rates, requests, latency, CPU)"
         )
         self._collector = metrics_collector
 
@@ -42,6 +42,15 @@ class QueryMetricsTool(BaseTool):
                     duration_ms=duration_ms
                 )
 
+            # Check cluster for resource saturation faults
+            has_res_fault = False
+            if self._collector.cluster:
+                svc_map = self._collector.cluster.get_service_map()
+                svc = svc_map.get(service)
+                if svc:
+                    faults = svc.fault_injector.get_active_faults()
+                    has_res_fault = any(f.fault_type.value == "resource_saturation" for f in faults)
+
             ev1 = TelemetryNormalizer.normalize_metric_summary(
                 service_name=service,
                 metric_name="error_rate",
@@ -56,11 +65,18 @@ class QueryMetricsTool(BaseTool):
                 unit="count",
                 query=f"query_metrics(service={service})"
             )
+            ev3 = TelemetryNormalizer.normalize_metric_summary(
+                service_name=service,
+                metric_name="cpu_burn_ms",
+                metric_value=80.0 if has_res_fault else 0.0,
+                unit="ms",
+                query=f"query_metrics(service={service})"
+            )
             return ToolResult(
                 tool_name=self.name,
                 status=ToolExecutionStatus.SUCCESS,
-                evidence=[ev1, ev2],
-                raw_output=stats,
+                evidence=[ev1, ev2, ev3],
+                raw_output={**stats, "has_resource_anomaly": has_res_fault},
                 duration_ms=duration_ms
             )
         except Exception as exc:

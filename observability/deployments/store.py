@@ -38,6 +38,11 @@ class DeploymentStore:
                 )
             )
 
+    def reset(self) -> None:
+        with self._lock:
+            self._deployments.clear()
+            self._seed_initial_versions()
+
     def record_deployment(self, record: DeploymentRecord) -> None:
         with self._lock:
             self._deployments.append(record)
@@ -58,8 +63,7 @@ class DeploymentStore:
         with self._lock:
             return sorted(
                 [d for d in self._deployments if d.deployed_at >= cutoff],
-                key=lambda x: x.deployed_at,
-                reverse=True
+                key=lambda x: x.deployed_at
             )
 
 global_deployment_store = DeploymentStore()

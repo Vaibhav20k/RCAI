@@ -143,6 +143,13 @@ SCENARIO_PAYMENT_ROUTE_DEGRADATION = ScenarioDefinition(
         error_rate=0.80,
         parameters={"route": "axis_upi_route", "http_status": 502}
     ),
+    deployment_event={
+        "deployment_id": "dep_pay_route_cfg",
+        "service": "payment-service",
+        "version": "2.4.3",
+        "previous_version": "2.4.0",
+        "change_description": "Route config release: updated axis_upi routing table"
+    },
     ground_truth=GroundTruth(
         root_cause_service="payment-service",
         root_cause_type="bad_deployment",

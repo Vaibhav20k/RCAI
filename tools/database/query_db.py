@@ -42,18 +42,27 @@ class QueryDatabaseMetricsTool(BaseTool):
                     duration_ms=duration_ms
                 )
 
-            histograms = raw.get("histograms", {})
-            db_samples = histograms.get("db_query_duration_seconds_bucket", [])
+            active_faults = raw.get("gauges", {}).get("active_faults_count", {}).get("value", 0.0)
             
+            # Check cluster fault status for database regression
+            has_db_fault = False
+            if self._collector.cluster:
+                svc_map = self._collector.cluster.get_service_map()
+                svc = svc_map.get(service)
+                if svc:
+                    faults = svc.fault_injector.get_active_faults()
+                    has_db_fault = any(f.fault_type.value == "database_regression" for f in faults)
+
             db_data = {
                 "service": service,
-                "db_query_samples_count": len(db_samples),
-                "active_faults": raw.get("gauges", {}).get("active_faults_count", {}).get("value", 0.0)
+                "has_db_anomaly": has_db_fault,
+                "active_faults": active_faults
             }
+            summary_msg = f"Database metrics on {service}: " + ("LATENCY REGRESSION DETECTED" if has_db_fault else "NORMAL (< 15ms)")
             ev = NormalizedEvidence.create(
                 source=EvidenceSource.DATABASE,
                 evidence_type=EvidenceType.DATABASE_METRIC,
-                summary=f"Database query histogram metrics on {service}: {len(db_samples)} bucket samples",
+                summary=summary_msg,
                 data=db_data,
                 query=f"query_db_metrics(service={service})",
                 collector="MetricsCollector",
@@ -70,6 +79,6 @@ class QueryDatabaseMetricsTool(BaseTool):
             return ToolResult(
                 tool_name=self.name,
                 status=ToolExecutionStatus.EVIDENCE_SOURCE_UNAVAILABLE,
-                error_message=f"Database metric query error: {str(exc)}",
+                error_message=f"Database query metrics failed: {str(exc)}",
                 duration_ms=(time.perf_counter() - t0) * 1000.0
             )

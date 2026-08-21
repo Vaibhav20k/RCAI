@@ -11,8 +11,9 @@ class ScenarioRunner:
         self.cluster = cluster
 
     def execute_scenario(self, scenario: ScenarioDefinition) -> Dict[str, Any]:
-        # 1. Reset cluster
+        # 1. Reset cluster and deployment store
         self.cluster.clear_all_faults()
+        global_deployment_store.reset()
         start_ts = time.time()
 
         # 2. Run baseline traffic
@@ -45,9 +46,9 @@ class ScenarioRunner:
         return {
             "scenario_id": scenario.scenario_id,
             "service": scenario.service,
+            "ground_truth": scenario.ground_truth.model_dump(),
             "started_at": start_ts,
             "ended_at": end_ts,
             "baseline_stats": baseline_stats.model_dump(),
-            "incident_stats": incident_stats.model_dump(),
-            "ground_truth": scenario.ground_truth.model_dump()
+            "incident_stats": incident_stats.model_dump()
         }

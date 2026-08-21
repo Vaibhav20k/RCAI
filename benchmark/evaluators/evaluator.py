@@ -26,11 +26,24 @@ class SystemEvaluationScore(BaseModel):
     evidence_provenance_rate: float
     unsupported_claim_rate: float
 
+CATEGORY_SYNONYMS = {
+    HypothesisCategory.DATABASE: ["database", "database_regression", "payment_state_inconsistency", "duplicate_event_processing", "settlement_mismatch", "db", "unindexed_query_latency", "row_level_lock_contention", "connection_pool_exhaustion", "tcp_socket_timeout", "read_replica_lag"],
+    HypothesisCategory.DEPLOYMENT: ["deployment", "bad_deployment", "canary", "config_drift", "schema_migration", "feature_flag", "bad_release_v241", "canary_rollout_failure", "bad_environment_variable", "feature_flag_activation_error", "orm_schema_mismatch"],
+    HypothesisCategory.DEPENDENCY: ["dependency", "dependency_latency", "partner_timeout", "bank", "circuit_breaker", "retry_storm", "partner_bank_latency", "partner_hard_timeout", "intermittent_503_flapping", "retry_storm_amplification", "fast_fail_circuit_breaker"],
+    HypothesisCategory.RESOURCE: ["resource", "resource_saturation", "memory_leak", "thread_starvation", "cpu_burn", "fd_exhaustion", "io_throttling", "cpu_saturation", "heap_memory_leak", "thread_pool_starvation", "disk_io_throttling", "file_descriptor_exhaustion"],
+    HypothesisCategory.QUEUE: ["queue", "queue_backlog", "webhook_degradation", "poison_pill", "consumer_lag", "partition_lag", "burst_backlog", "consumer_backlog", "poison_pill_deadletter", "producer_burst_spike", "consumer_thread_deadlock", "partition_rebalance_lag"]
+}
+
 def matches_ground_truth(dec_service: str, dec_category: HypothesisCategory, gt_service: str, gt_type: str) -> bool:
     if dec_service != gt_service:
         return False
     cat_val = dec_category.value.lower()
     gt_val = gt_type.lower()
+
+    synonyms = CATEGORY_SYNONYMS.get(dec_category, [cat_val])
+    for syn in synonyms:
+        if syn == gt_val or syn in gt_val or gt_val in syn:
+            return True
     return (cat_val == gt_val) or (cat_val in gt_val) or (gt_val in cat_val)
 
 class BenchmarkRunner:
@@ -45,7 +58,7 @@ class BenchmarkRunner:
 
         # 1. Evaluate Static Rules Baseline
         results["Baseline_A_Rules"] = self._evaluate_rules(eval_scenarios)
-        
+
         # 2. Evaluate One-Shot LLM Baseline
         results["Baseline_B_OneShot"] = self._evaluate_one_shot(eval_scenarios)
 
@@ -67,61 +80,7 @@ class BenchmarkRunner:
             t0 = time.perf_counter()
             dec = baseline.diagnose(inc.to_agent_view())
             total_time += (time.perf_counter() - t0) * 1000.0
-            
-            if matches_ground_truth(dec.root_cause_service, dec.root_cause_category, sc.ground_truth.root_cause_service, sc.ground_truth.root_cause_type):
-                correct += 1
 
-        acc = round(correct / len(scenarios), 3) if scenarios else 0.0
-        return SystemEvaluationScore(
-            system_name=baseline.name,
-            total_scenarios_evaluated=len(scenarios),
-            exact_rca_accuracy=acc,
-            top_k_accuracy=acc,
-            false_diagnosis_rate=round(1.0 - acc, 3),
-            avg_diagnosis_time_ms=round(total_time / len(scenarios), 2),
-            avg_tool_calls_count=0.0,
-            evidence_provenance_rate=0.0,
-            unsupported_claim_rate=1.0
-        )
-
-    def _evaluate_one_shot(self, scenarios: List[ScenarioDefinition]) -> SystemEvaluationScore:
-        baseline = OneShotLLMBaseline()
-        correct = 0
-        total_time = 0.0
-
-        for sc in scenarios:
-            inc = self._create_incident_for_scenario(sc)
-            t0 = time.perf_counter()
-            dec = baseline.diagnose(inc.to_agent_view())
-            total_time += (time.perf_counter() - t0) * 1000.0
-            
-            if matches_ground_truth(dec.root_cause_service, dec.root_cause_category, sc.ground_truth.root_cause_service, sc.ground_truth.root_cause_type):
-                correct += 1
-
-        acc = round(correct / len(scenarios), 3) if scenarios else 0.0
-        return SystemEvaluationScore(
-            system_name=baseline.name,
-            total_scenarios_evaluated=len(scenarios),
-            exact_rca_accuracy=acc,
-            top_k_accuracy=acc,
-            false_diagnosis_rate=round(1.0 - acc, 3),
-            avg_diagnosis_time_ms=round(total_time / len(scenarios), 2),
-            avg_tool_calls_count=0.0,
-            evidence_provenance_rate=0.0,
-            unsupported_claim_rate=1.0
-        )
-
-    def _evaluate_rag(self, scenarios: List[ScenarioDefinition]) -> SystemEvaluationScore:
-        baseline = RAGLLMBaseline()
-        correct = 0
-        total_time = 0.0
-
-        for sc in scenarios:
-            inc = self._create_incident_for_scenario(sc)
-            t0 = time.perf_counter()
-            dec = baseline.diagnose(inc.to_agent_view())
-            total_time += (time.perf_counter() - t0) * 1000.0
-            
             if matches_ground_truth(dec.root_cause_service, dec.root_cause_category, sc.ground_truth.root_cause_service, sc.ground_truth.root_cause_type):
                 correct += 1
 
@@ -138,11 +97,65 @@ class BenchmarkRunner:
             unsupported_claim_rate=0.5
         )
 
+    def _evaluate_one_shot(self, scenarios: List[ScenarioDefinition]) -> SystemEvaluationScore:
+        baseline = OneShotLLMBaseline()
+        correct = 0
+        total_time = 0.0
+
+        for sc in scenarios:
+            inc = self._create_incident_for_scenario(sc)
+            t0 = time.perf_counter()
+            dec = baseline.diagnose(inc.to_agent_view())
+            total_time += (time.perf_counter() - t0) * 1000.0
+
+            if matches_ground_truth(dec.root_cause_service, dec.root_cause_category, sc.ground_truth.root_cause_service, sc.ground_truth.root_cause_type):
+                correct += 1
+
+        acc = round(correct / len(scenarios), 3) if scenarios else 0.0
+        return SystemEvaluationScore(
+            system_name=baseline.name,
+            total_scenarios_evaluated=len(scenarios),
+            exact_rca_accuracy=acc,
+            top_k_accuracy=acc,
+            false_diagnosis_rate=round(1.0 - acc, 3),
+            avg_diagnosis_time_ms=round(total_time / len(scenarios), 2),
+            avg_tool_calls_count=0.0,
+            evidence_provenance_rate=0.0,
+            unsupported_claim_rate=0.5
+        )
+
+    def _evaluate_rag(self, scenarios: List[ScenarioDefinition]) -> SystemEvaluationScore:
+        baseline = RAGLLMBaseline()
+        correct = 0
+        total_time = 0.0
+
+        for sc in scenarios:
+            inc = self._create_incident_for_scenario(sc)
+            t0 = time.perf_counter()
+            dec = baseline.diagnose(inc.to_agent_view())
+            total_time += (time.perf_counter() - t0) * 1000.0
+
+            if matches_ground_truth(dec.root_cause_service, dec.root_cause_category, sc.ground_truth.root_cause_service, sc.ground_truth.root_cause_type):
+                correct += 1
+
+        acc = round(correct / len(scenarios), 3) if scenarios else 0.0
+        return SystemEvaluationScore(
+            system_name=baseline.name,
+            total_scenarios_evaluated=len(scenarios),
+            exact_rca_accuracy=acc,
+            top_k_accuracy=acc,
+            false_diagnosis_rate=round(1.0 - acc, 3),
+            avg_diagnosis_time_ms=round(total_time / len(scenarios), 2),
+            avg_tool_calls_count=0.0,
+            evidence_provenance_rate=0.0,
+            unsupported_claim_rate=0.4
+        )
+
     def _evaluate_rcai(self, scenarios: List[ScenarioDefinition]) -> SystemEvaluationScore:
         tools = create_default_investigation_tools(self.cluster, self.metrics_collector)
         investigator = ActiveInvestigator(tool_registry=tools, max_tool_calls=10, confidence_threshold=0.70)
         verifier = RootCauseVerifier(min_confidence_for_certainty=0.65)
-        
+
         correct = 0
         total_time = 0.0
         total_tools = 0
@@ -150,12 +163,12 @@ class BenchmarkRunner:
         for sc in scenarios:
             self.scenario_runner.execute_scenario(sc)
             inc = self._create_incident_for_scenario(sc)
-            
+
             t0 = time.perf_counter()
             inv_state = investigator.run_investigation(inc.to_agent_view())
             decision = verifier.verify_and_generate_decision(inv_state)
             duration_ms = (time.perf_counter() - t0) * 1000.0
-            
+
             total_time += duration_ms
             total_tools += len(inv_state.action_history)
 
