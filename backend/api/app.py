@@ -15,7 +15,7 @@ from agent.investigator.state import InvestigationState
 from agent.verification.engine import RootCauseVerifier
 from agent.verification.models import RootCauseDecision, IncidentReport
 from agent.policies.models import RemediationProposal, RemediationActionType
-from agent.policies.engine import PolicyEngine
+from agent.policies.engine import PolicyEngine, VALID_TOPOLOGY_SERVICES
 from tools.remediation.executor import BoundedRemediationExecutor
 from agent.verification.outcome import RemediationOutcomeVerifier
 from benchmark.evaluators.evaluator import BenchmarkRunner
@@ -213,6 +213,17 @@ def execute_remediation(req: RemediationRequest):
     if not inc:
         raise HTTPException(status_code=404, detail="Incident not found")
 
+    # Early rejection for UNKNOWN / unverified targets
+    if not req.target_service or req.target_service == "UNKNOWN" or req.target_service not in VALID_TOPOLOGY_SERVICES:
+        inc.status = IncidentStatus.ESCALATED
+        return {
+            "status": "BLOCKED",
+            "policy_code": "DENIED_UNKNOWN_SERVICE",
+            "rejection_reason": f"Target service '{req.target_service}' not recognized in active microservice topology",
+            "error": f"Remediation blocked: Target service '{req.target_service}' is UNKNOWN or not in active topology",
+            "is_recovered": False
+        }
+
     proposal = RemediationProposal(
         incident_id=req.incident_id,
         action_type=RemediationActionType(req.action_type),
@@ -228,7 +239,9 @@ def execute_remediation(req: RemediationRequest):
     if exec_res.status.value != "SUCCESS":
         inc.status = IncidentStatus.ESCALATED
         return {
-            "status": "FAILED",
+            "status": "BLOCKED",
+            "policy_code": "EXECUTION_REJECTED",
+            "rejection_reason": exec_res.error_message,
             "error": exec_res.error_message,
             "is_recovered": False
         }

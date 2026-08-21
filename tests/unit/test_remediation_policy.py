@@ -93,3 +93,38 @@ def test_high_risk_action_requires_human_approval(cluster_and_executor):
     res = executor.execute_remediation(proposal)
     assert res.status == ToolExecutionStatus.PERMISSION_DENIED
     assert "approval token" in res.error_message.lower()
+def test_unknown_target_cannot_execute(cluster_and_executor):
+    cluster, policy_engine, executor = cluster_and_executor
+    proposal = RemediationProposal(
+        incident_id="inc_rem_unknown",
+        action_type=RemediationActionType.ROLLBACK_VERSION,
+        target_service="UNKNOWN",
+        parameters={"target_version": "1.0.0"},
+        rationale="Attempt rollback on unresolved target"
+    )
+    res = executor.execute_remediation(proposal)
+    assert res.status == ToolExecutionStatus.PERMISSION_DENIED
+    assert "not recognized" in res.error_message.lower()
+
+def test_failed_remediation_does_not_mutate_state_or_recover(cluster_and_executor):
+    cluster, policy_engine, executor = cluster_and_executor
+    fault = FaultConfig(
+        service_name="payment-service",
+        fault_type=FaultType.BAD_DEPLOYMENT,
+        error_rate=1.0
+    )
+    cluster.payment_service.fault_injector.set_fault(fault)
+    assert cluster.payment_client.get("/health").status_code == 500
+
+    # Attempt execution with invalid target service
+    proposal = RemediationProposal(
+        incident_id="inc_rem_invalid",
+        action_type=RemediationActionType.ROLLBACK_VERSION,
+        target_service="UNKNOWN",
+        rationale="Invalid target"
+    )
+    res = executor.execute_remediation(proposal)
+    assert res.status == ToolExecutionStatus.PERMISSION_DENIED
+
+    # Verify cluster remains in degraded state (zero unauthorized mutations)
+    assert cluster.payment_client.get("/health").status_code == 500

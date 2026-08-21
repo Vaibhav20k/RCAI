@@ -417,6 +417,9 @@ function renderRemediation(report, existingOutcome) {
     const dec = report.root_cause_decision;
     const isResolved = (currentIncident && currentIncident.status === "RESOLVED") || (existingOutcome && existingOutcome.is_recovered);
 
+    const validServices = ["api-gateway", "order-service", "payment-service", "dependency-service", "worker-service"];
+    const isTargetValid = !dec.is_unknown && dec.root_cause_service && dec.root_cause_service !== "UNKNOWN" && validServices.includes(dec.root_cause_service);
+
     let actionType = "rollback_version";
     if (dec.root_cause_category === "database") actionType = "optimize_db_index";
     else if (dec.root_cause_category === "resource") actionType = "restart_workers";
@@ -431,13 +434,47 @@ function renderRemediation(report, existingOutcome) {
         rationale: report.recommended_action || `Automated bounded remediation for ${dec.description}`
     };
 
+    if (!isTargetValid) {
+        // Target service is UNKNOWN or not in active topology -> Early Block
+        container.innerHTML = `
+            <div style="border: 1px solid var(--critical); background: rgba(229, 72, 77, 0.08); padding: 12px; border-radius: 4px;">
+                <div style="color: var(--critical); font-weight: 700; font-family: var(--font-mono); font-size: 12px; margin-bottom: 6px;">
+                    POLICY GATE: REMEDIATION BLOCKED
+                </div>
+                <div style="color: var(--text); font-size: 12px; margin-bottom: 8px;">
+                    <strong>Proposed Action:</strong> <code class="mono">${actionType}</code> on <code class="mono" style="color: var(--critical)">${dec.root_cause_service}</code>
+                </div>
+                <div style="color: var(--text-dim); font-size: 11px; margin-bottom: 10px;">
+                    <strong>Block Reason:</strong> Target service could not be resolved in the active microservice topology. Safe refusal guarantees zero unverified or destructive mutations.
+                </div>
+
+                <table class="policy-table">
+                    <tbody>
+                        <tr><td>Target Service in Topology</td><td class="policy-block">FAILED (UNKNOWN / UNRESOLVED)</td></tr>
+                        <tr><td>Incident Active State Check</td><td class="policy-pass">PASS</td></tr>
+                        <tr><td>Idempotency Duplicate Prevention</td><td class="policy-pass">PASS</td></tr>
+                        <tr><td>Direct Shell / Bash Execution</td><td class="policy-block">STRICTLY FORBIDDEN</td></tr>
+                        <tr><td>Policy Gate Decision</td><td class="policy-block">BLOCKED (UNSAFE MUTATION)</td></tr>
+                    </tbody>
+                </table>
+
+                <div style="margin-top: 12px;">
+                    <button class="btn btn-secondary" disabled style="opacity: 0.6; cursor: not-allowed; border-color: var(--critical); color: var(--critical);">
+                        REMEDIATION BLOCKED (TARGET UNRESOLVED)
+                    </button>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
     container.innerHTML = `
-        <div><strong>RECOMMENDED BOUNDED ACTION:</strong> <code class="mono">${actionType}</code> on <code class="mono">${dec.root_cause_service}</code></div>
-        <div style="color:var(--text-dim); margin-top:4px;">${report.recommended_action || "Manual inspection required"}</div>
+        <div><strong>RECOMMENDED BOUNDED ACTION:</strong> <code class="mono">${actionType}</code> on <code class="mono" style="color:var(--verified)">${dec.root_cause_service}</code></div>
+        <div style="color:var(--text-dim); margin-top:4px;">${report.recommended_action || "Ready for human confirmation and controlled execution"}</div>
 
         <table class="policy-table">
             <tbody>
-                <tr><td>Target Service in Topology</td><td class="policy-pass">VALID</td></tr>
+                <tr><td>Target Service in Topology</td><td class="policy-pass">VALID (${dec.root_cause_service})</td></tr>
                 <tr><td>Incident Active State Check</td><td class="policy-pass">PASS</td></tr>
                 <tr><td>Idempotency Duplicate Prevention</td><td class="policy-pass">PASS</td></tr>
                 <tr><td>Direct Shell / Bash Execution</td><td class="policy-block">STRICTLY FORBIDDEN</td></tr>
@@ -461,8 +498,9 @@ function renderRemediation(report, existingOutcome) {
             const modalBody = document.getElementById("modal-body-content");
             modalBody.innerHTML = `
                 <p><strong>Proposed Action:</strong> <code class="mono">${actionType}</code></p>
-                <p><strong>Target Service:</strong> <code class="mono">${dec.root_cause_service}</code></p>
-                <p><strong>Rationale:</strong> ${report.recommended_action}</p>
+                <p><strong>Target Service:</strong> <code class="mono" style="color:var(--verified)">${dec.root_cause_service}</code></p>
+                <p><strong>Target Validation:</strong> <span class="mono" style="color:var(--verified)">VALID (Microservice Topology)</span></p>
+                <p><strong>Rationale:</strong> ${report.recommended_action || "Targeted bounded remediation"}</p>
                 <p><strong>Policy Code:</strong> <span class="mono" style="color:var(--verified)">ALLOWED</span></p>
                 <p><strong>Expected Impact:</strong> Neutralize fault injection, clear error rate, normalize p95 latency.</p>
             `;
@@ -475,6 +513,7 @@ function renderRemediation(report, existingOutcome) {
 async function executeConfirmedRemediation() {
     document.getElementById("remediation-modal").classList.add("hidden");
     const container = document.getElementById("remediation-content");
+    const outcomePanel = document.getElementById("outcome-verification-panel");
     container.innerHTML = "<div class=\"empty-state\">Executing bounded remediation &amp; generating verification test traffic...</div>";
 
     try {
@@ -494,10 +533,33 @@ async function executeConfirmedRemediation() {
             renderRemediation(currentReport, data.outcome);
             await loadTopology(null);
         } else {
-            alert("Remediation execution failed: " + data.error);
+            // Execution Blocked or Failed -> Clean failure state
+            if (outcomePanel) outcomePanel.classList.add("hidden");
+            document.getElementById("incident-status-pill").innerText = "STATE: ESCALATED / BLOCKED";
+            document.getElementById("incident-status-pill").style.color = "var(--critical)";
+
+            container.innerHTML = `
+                <div style="border: 1px solid var(--critical); background: rgba(229, 72, 77, 0.08); padding: 12px; border-radius: 4px;">
+                    <div style="color: var(--critical); font-weight: 700; font-family: var(--font-mono); font-size: 12px; margin-bottom: 6px;">
+                        REMEDIATION BLOCKED / EXECUTION REJECTED
+                    </div>
+                    <div style="color: var(--text); font-size: 12px; margin-bottom: 6px;">
+                        <strong>Rejection Reason:</strong> ${data.error || data.rejection_reason || "Target validation or policy rejection"}
+                    </div>
+                    <div style="color: var(--text-dim); font-size: 11px;">
+                        Zero state mutations applied. Incident preserved for manual engineer escalation.
+                    </div>
+                </div>
+            `;
         }
     } catch (err) {
-        alert("Remediation error: " + err);
+        if (outcomePanel) outcomePanel.classList.add("hidden");
+        container.innerHTML = `
+            <div style="border: 1px solid var(--critical); padding: 12px; border-radius: 4px;">
+                <div style="color: var(--critical); font-weight: 700;">Remediation Network Failure</div>
+                <div style="color: var(--text); font-size: 12px; margin-top: 4px;">${err}</div>
+            </div>
+        `;
     }
 }
 
