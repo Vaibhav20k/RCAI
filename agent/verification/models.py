@@ -4,6 +4,7 @@ from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 from backend.incidents.models import AgentIncidentView
 from agent.hypothesis.models import HypothesisCategory
+from agent.policies.models import RemediationProposal
 
 class RootCauseDecision(BaseModel):
     decision_id: str
@@ -29,4 +30,5 @@ class IncidentReport(BaseModel):
     executive_summary: str
     evidence_trail: List[Dict[str, Any]] = Field(default_factory=list)
     recommended_action: Optional[str] = None
+    recommended_proposal: Optional[RemediationProposal] = None
     created_at: float = Field(default_factory=time.time)

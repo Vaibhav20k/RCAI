@@ -1,19 +1,20 @@
 # Remediation Outcome Verification Engine
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 from pydantic import BaseModel, Field
 from backend.incidents.models import Incident, IncidentStatus
 from agent.policies.models import RemediationProposal
 from simulator.services.runner import InProcessCluster
 from simulator.traffic.generator import TrafficGenerator
 from observability.metrics.collector import MetricsCollector
+from backend.config import get_settings
 
 class OutcomeVerificationResult(BaseModel):
     incident_id: str
     proposal_id: str
     target_service: str
     is_recovered: bool
-    status: str
+    status: str # RESOLVED, REMEDIATION_FAILED, ROLLED_BACK_AND_ESCALATED
     pre_metrics: Dict[str, Any]
     post_metrics: Dict[str, Any]
     verification_summary: str
@@ -90,3 +91,13 @@ class RemediationOutcomeVerifier:
             post_metrics=post_metrics,
             verification_summary=summary
         )
+
+def get_outcome_verifier(
+    cluster: Optional[InProcessCluster] = None,
+    metrics_collector: Optional[MetricsCollector] = None
+) -> Union[RemediationOutcomeVerifier, Any]:
+    settings = get_settings()
+    if settings.DATA_SOURCE == "live":
+        from agent.verification.live_outcome import LiveRemediationOutcomeVerifier
+        return LiveRemediationOutcomeVerifier()
+    return RemediationOutcomeVerifier(cluster or InProcessCluster(), metrics_collector)
