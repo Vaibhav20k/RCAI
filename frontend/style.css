@@ -220,6 +220,37 @@ body {
     font-size: 12px;
 }
 
+.btn-refresh {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+}
+
+.btn-refresh:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-subtle);
+}
+
+.btn-refresh.spinning .refresh-icon {
+    animation: rcai-spin 0.75s linear infinite;
+}
+
+@keyframes rcai-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
 .theme-switch-btn {
     background: var(--surface-2);
     border: 1px solid var(--border);
