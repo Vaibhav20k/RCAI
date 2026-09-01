@@ -1,5 +1,5 @@
 # Investigation Tool Registry - RCAI v2 Expanded Suite
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 from tools.base import BaseTool, ToolPermission
 from tools.logs.query_logs import QueryLogsTool
 from tools.metrics.query_metrics import QueryMetricsTool
@@ -20,6 +20,8 @@ from tools.payment.tools import (
 )
 from simulator.services.runner import InProcessCluster
 from observability.metrics.collector import MetricsCollector
+from observability.live.adapter import LivePrometheusAdapter
+from backend.config import get_settings
 
 class ToolRegistry:
     def __init__(self):
@@ -38,12 +40,15 @@ class ToolRegistry:
 
 def create_default_investigation_tools(
     cluster: Optional[InProcessCluster] = None,
-    metrics_collector: Optional[MetricsCollector] = None
+    metrics_collector: Optional[Union[MetricsCollector, LivePrometheusAdapter]] = None
 ) -> ToolRegistry:
     reg = ToolRegistry()
+    settings = get_settings()
 
     if cluster and not metrics_collector:
         metrics_collector = MetricsCollector(cluster)
+    elif not metrics_collector and settings.is_live_mode():
+        metrics_collector = LivePrometheusAdapter()
 
     # Core Investigation Tools (8)
     reg.register_tool(QueryLogsTool())
