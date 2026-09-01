@@ -16,7 +16,7 @@ class BoundedRemediationExecutor:
     def execute_remediation(self, proposal: RemediationProposal) -> ToolResult:
         t0 = time.perf_counter()
         
-        # 1. Enforce Policy check
+        # 1. Enforce Policy check (deterministic safety boundary)
         policy_res = self.policy_engine.evaluate_proposal(proposal)
         if not policy_res.is_allowed:
             return ToolResult(
@@ -34,7 +34,7 @@ class BoundedRemediationExecutor:
                 duration_ms=(time.perf_counter() - t0) * 1000.0
             )
 
-        # 2. Execute bounded remediation
+        # 2. Execute bounded remediation against cluster services
         service_obj = self.cluster.get_service_map().get(proposal.target_service)
         if not service_obj:
             return ToolResult(
@@ -45,7 +45,7 @@ class BoundedRemediationExecutor:
             )
 
         action = proposal.action_type
-        if action == RemediationActionType.ROLLBACK_VERSION:
+        if action in [RemediationActionType.ROLLBACK_VERSION, RemediationActionType.ROLLBACK_DEPLOY]:
             # Revert deployment to previous version and clear fault
             target_version = proposal.parameters.get("target_version", "1.0.0")
             service_obj.version = target_version
@@ -66,7 +66,7 @@ class BoundedRemediationExecutor:
             # Clear database regression fault
             service_obj.fault_injector.clear_faults()
 
-        elif action == RemediationActionType.RESTART_WORKERS:
+        elif action in [RemediationActionType.RESTART_WORKERS, RemediationActionType.RESTART_SERVICE]:
             # Clear CPU spinlock/resource saturation fault
             service_obj.fault_injector.clear_faults()
 
@@ -76,20 +76,34 @@ class BoundedRemediationExecutor:
             if dep_service:
                 dep_service.fault_injector.clear_faults()
 
-        elif action == RemediationActionType.SCALE_WORKERS:
+        elif action in [RemediationActionType.SCALE_WORKERS, RemediationActionType.SCALE_REPLICAS]:
             # Clear queue worker backlog
             worker_service = self.cluster.get_service_map().get("worker-service")
             if worker_service:
                 worker_service.fault_injector.clear_faults()
 
+        elif action == RemediationActionType.FLUSH_CACHE:
+            # Clear cache corruption or memory contention
+            service_obj.fault_injector.clear_faults()
+
+        elif action == RemediationActionType.TOGGLE_FEATURE_FLAG:
+            # Toggle feature flag and clear fault
+            service_obj.fault_injector.clear_faults()
+
         self.policy_engine.record_execution(proposal)
         duration_ms = (time.perf_counter() - t0) * 1000.0
+        auth_mode_str = proposal.authorization_mode.value
         
         ev = NormalizedEvidence.create(
             source=EvidenceSource.DEPLOYMENTS,
             evidence_type=EvidenceType.DEPLOYMENT_EVENT,
-            summary=f"Executed bounded remediation {proposal.action_type.value} on {proposal.target_service}",
-            data={"proposal_id": proposal.proposal_id, "action": proposal.action_type.value, "target": proposal.target_service},
+            summary=f"[{auth_mode_str}] Executed bounded remediation {proposal.action_type.value} on {proposal.target_service}",
+            data={
+                "proposal_id": proposal.proposal_id,
+                "action": proposal.action_type.value,
+                "target": proposal.target_service,
+                "authorization_mode": auth_mode_str
+            },
             query=f"remediation.execute({proposal.action_type.value})",
             collector="BoundedRemediationExecutor",
             reliability=1.0
@@ -98,6 +112,6 @@ class BoundedRemediationExecutor:
             tool_name=proposal.action_type.value,
             status=ToolExecutionStatus.SUCCESS,
             evidence=[ev],
-            raw_output={"status": "EXECUTED", "proposal_id": proposal.proposal_id},
+            raw_output={"status": "EXECUTED", "proposal_id": proposal.proposal_id, "authorization_mode": auth_mode_str},
             duration_ms=duration_ms
         )

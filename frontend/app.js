@@ -11,16 +11,45 @@ let currentOutcome = null;
 let allEvidenceStore = {};
 let allIncidents = [];
 let pendingRemediationProposal = null;
+let currentInvestigationRequestId = 0;
 
 document.addEventListener("DOMContentLoaded", async () => {
     setupNavigation();
     setupThemeSwitcher();
+    await checkHealthAndConfig();
     await loadScenarios();
     await loadTopology();
     await loadActiveIncident();
     setupEventHandlers();
     setupBenchmarkHandlers();
 });
+
+async function checkHealthAndConfig() {
+    try {
+        const resp = await fetch(`${API_BASE}/health`);
+        if (!resp.ok) return;
+        const h = await resp.json();
+        const llmBadge = document.getElementById("header-llm-badge");
+        const dsBadge = document.getElementById("header-datasource-badge");
+        if (llmBadge) {
+            if (h.llm_backend === "ollama") {
+                llmBadge.innerText = `ENGINE: OLLAMA (${h.ollama_model || "phi4-mini"})`;
+                llmBadge.style.color = "var(--accent)";
+            } else if (h.llm_backend === "hosted") {
+                llmBadge.innerText = "ENGINE: HOSTED (GPT-4o)";
+                llmBadge.style.color = "var(--warning)";
+            } else {
+                llmBadge.innerText = "ENGINE: RULE-BASED";
+                llmBadge.style.color = "var(--text-secondary)";
+            }
+        }
+        if (dsBadge) {
+            dsBadge.innerText = `SOURCE: ${(h.data_source || "simulator").toUpperCase()}`;
+        }
+    } catch (e) {
+        console.warn("Health probe failed:", e);
+    }
+}
 
 // 1. Navigation Tabs
 function setupNavigation() {
@@ -30,7 +59,8 @@ function setupNavigation() {
             document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
             item.classList.add("active");
             const targetId = item.getAttribute("data-tab");
-            document.getElementById(targetId).classList.add("active");
+            const panel = document.getElementById(targetId);
+            if (panel) panel.classList.add("active");
 
             if (targetId === "tab-incidents") {
                 loadIncidentsList();
@@ -52,6 +82,7 @@ async function loadScenarios() {
         if (!Array.isArray(scenarios) || scenarios.length === 0) return;
 
         const select = document.getElementById("scenario-select");
+        if (!select) return;
         const currentVal = select.value;
         select.innerHTML = scenarios.map(sc => `
             <option value="${sc.scenario_id}" ${sc.scenario_id === currentVal ? "selected" : ""}>${sc.name} [${sc.service}]</option>
@@ -68,8 +99,10 @@ async function loadScenarios() {
 async function loadTopology(faultService = null) {
     try {
         const resp = await fetch(`${API_BASE}/api/topology`);
+        if (!resp.ok) return;
         const data = await resp.json();
         const container = document.getElementById("topology-graph");
+        if (!container || !data.nodes) return;
 
         container.innerHTML = data.nodes.map(node => {
             const isFault = (faultService && node.id === faultService) || node.has_fault;
@@ -96,17 +129,59 @@ async function loadTopology(faultService = null) {
 }
 
 function highlightServiceEvidence(serviceId) {
-    document.querySelector("[data-tab=\"tab-evidence\"]").click();
+    const evTab = document.querySelector('[data-tab="tab-evidence"]');
+    if (evTab) evTab.click();
     renderEvidenceExplorer(serviceId);
 }
 
-// 4. Load Active Incident
+// 4. Reset Transient Investigation UI State
+function resetTransientInvestigationUI(clearIncident = false) {
+    currentInvestigationRequestId++;
+    currentInvestigation = null;
+    currentReport = null;
+    currentOutcome = null;
+    allEvidenceStore = {};
+    pendingRemediationProposal = null;
+
+    if (clearIncident) {
+        currentIncident = null;
+    }
+
+    renderIncidentContext(currentIncident);
+    updateKPIs(currentIncident, null, null);
+    updateStepper(currentIncident ? (currentIncident.status || "DETECTED") : "DETECTED");
+
+    renderHypotheses(null);
+    renderTimeline([]);
+    renderNextAction(null);
+    renderBudget(null);
+    renderVerification(null);
+    renderRemediation(null, null);
+    renderOutcome(null);
+
+    const runBtn = document.getElementById("btn-run-investigation");
+    if (runBtn) {
+        runBtn.disabled = false;
+        runBtn.innerText = "RUN AUTONOMOUS INVESTIGATION";
+    }
+
+    const remModal = document.getElementById("remediation-modal");
+    if (remModal) remModal.classList.add("hidden");
+    const evModal = document.getElementById("evidence-modal");
+    if (evModal) evModal.classList.add("hidden");
+}
+
+// 5. Load Active Incident with Case-Scoped Rendering
 async function loadActiveIncident(specificIncidentId = null) {
     try {
         const resp = await fetch(`${API_BASE}/api/incidents`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const incidents = await resp.json();
         allIncidents = incidents;
-        if (!incidents || incidents.length === 0) return;
+        if (!incidents || incidents.length === 0) {
+            resetTransientInvestigationUI(true);
+            return;
+        }
 
         let target = incidents[incidents.length - 1];
         if (specificIncidentId) {
@@ -114,71 +189,131 @@ async function loadActiveIncident(specificIncidentId = null) {
         }
 
         const detailResp = await fetch(`${API_BASE}/api/incidents/${target.incident_id}`);
+        if (!detailResp.ok) throw new Error(`HTTP ${detailResp.status}`);
         const fullData = await detailResp.json();
 
-        currentIncident = fullData.incident;
-        currentInvestigation = fullData.investigation;
-        currentReport = fullData.report;
-        currentOutcome = fullData.outcome;
+        // Increment request ID to cancel any prior in-flight requests
+        currentInvestigationRequestId++;
 
-        if (currentInvestigation && currentInvestigation.evidence_store) {
-            allEvidenceStore = currentInvestigation.evidence_store;
+        currentIncident = fullData.incident;
+        currentInvestigation = fullData.investigation || null;
+        currentReport = fullData.report || null;
+        currentOutcome = fullData.outcome || null;
+        allEvidenceStore = (currentInvestigation && currentInvestigation.evidence_store) ? currentInvestigation.evidence_store : {};
+
+        // Sync dropdown with current incident scenario
+        const scenarioSelect = document.getElementById("scenario-select");
+        if (scenarioSelect && currentIncident.scenario_id) {
+            scenarioSelect.value = currentIncident.scenario_id;
         }
 
+        // Render incident metadata & topology
         renderIncidentContext(currentIncident);
         updateKPIs(currentIncident, currentInvestigation, currentReport);
-        updateStepper(currentIncident.status);
+        updateStepper(currentIncident.status || "DETECTED");
         await loadTopology(currentIncident.service);
 
-        if (currentInvestigation) {
-            renderHypotheses(currentInvestigation.hypotheses);
-            renderTimeline(currentInvestigation.action_history);
-            renderBudget(currentInvestigation.budget);
-            if (currentInvestigation.action_history.length > 0) {
-                renderNextAction(currentInvestigation.action_history[currentInvestigation.action_history.length - 1]);
-            }
+        // Case-scoped rendering: if uninvestigated, render clean empty states; if investigated, render results
+        renderHypotheses(currentInvestigation ? currentInvestigation.hypotheses : null);
+        renderTimeline(currentInvestigation ? currentInvestigation.action_history : []);
+        renderBudget(currentInvestigation ? currentInvestigation.budget : null);
+        if (currentInvestigation && currentInvestigation.action_history && currentInvestigation.action_history.length > 0) {
+            renderNextAction(currentInvestigation.action_history[currentInvestigation.action_history.length - 1]);
+        } else {
+            renderNextAction(null);
         }
-        if (currentReport) {
-            renderVerification(currentReport);
-            renderRemediation(currentReport, currentOutcome);
-        }
-        if (currentOutcome) {
-            renderOutcome(currentOutcome);
+
+        renderVerification(currentReport);
+        renderRemediation(currentReport, currentOutcome);
+        renderOutcome(currentOutcome);
+
+        const runBtn = document.getElementById("btn-run-investigation");
+        if (runBtn) {
+            runBtn.disabled = false;
+            runBtn.innerText = (currentInvestigation && currentInvestigation.is_completed) ? "RE-RUN INVESTIGATION" : "RUN AUTONOMOUS INVESTIGATION";
         }
     } catch (err) {
         console.error("Failed to load active incident:", err);
     }
 }
 
-// 5. Render Incident Context Banner
+// 6. Render Incident Context Banner
 function renderIncidentContext(inc) {
-    document.getElementById("incident-id-badge").innerText = `ID: ${inc.incident_id}`;
-    document.getElementById("incident-severity-pill").innerText = inc.severity;
-    document.getElementById("incident-service-pill").innerText = `SERVICE: ${inc.service.toUpperCase()}`;
-    document.getElementById("incident-status-pill").innerText = `STATE: ${inc.status}`;
-    document.getElementById("incident-symptom-display").innerText = inc.symptom;
+    const idBadge = document.getElementById("incident-id-badge");
+    const sevPill = document.getElementById("incident-severity-pill");
+    const srvPill = document.getElementById("incident-service-pill");
+    const stPill = document.getElementById("incident-status-pill");
+    const sympDisplay = document.getElementById("incident-symptom-display");
+
+    if (!inc) {
+        if (idBadge) idBadge.innerText = "ID: --";
+        if (sevPill) sevPill.innerText = "CRITICAL";
+        if (srvPill) srvPill.innerText = "SERVICE: --";
+        if (stPill) {
+            stPill.innerText = "STATE: DETECTED";
+            stPill.style.color = "";
+        }
+        if (sympDisplay) sympDisplay.innerText = "Awaiting fault anomaly detection...";
+        return;
+    }
+
+    if (idBadge) idBadge.innerText = `ID: ${inc.incident_id}`;
+    if (sevPill) sevPill.innerText = inc.severity;
+    if (srvPill) srvPill.innerText = `SERVICE: ${inc.service.toUpperCase()}`;
+    if (stPill) {
+        stPill.innerText = `STATE: ${inc.status}`;
+        stPill.style.color = inc.status === "RESOLVED" ? "var(--verified)" : "";
+    }
+    if (sympDisplay) sympDisplay.innerText = inc.symptom;
 }
 
-// 6. Update KPI Strip
+// 7. Update KPI Strip
 function updateKPIs(inc, inv, rep) {
-    document.getElementById("kpi-active-count").innerText = String(allIncidents.filter(i => i.status !== "RESOLVED").length).padStart(2, "0");
+    const activeCountEl = document.getElementById("kpi-active-count");
+    if (activeCountEl) {
+        activeCountEl.innerText = String(allIncidents.filter(i => i.status !== "RESOLVED").length).padStart(2, "0");
+    }
+
+    const confEl = document.getElementById("kpi-confidence");
+    const verifEl = document.getElementById("kpi-verification");
+    const budgetEl = document.getElementById("budget-meter-text");
+    const budgetFillEl = document.getElementById("budget-meter-fill");
 
     if (rep && rep.root_cause_decision && !rep.root_cause_decision.is_unknown) {
-        document.getElementById("kpi-confidence").innerText = `${(rep.root_cause_decision.confidence * 100).toFixed(1)}%`;
-        const verifEl = document.getElementById("kpi-verification");
-        verifEl.innerText = "VERIFIED";
-        verifEl.className = "kpi-value mono status-verified";
+        if (confEl) confEl.innerText = `${(rep.root_cause_decision.confidence * 100).toFixed(1)}%`;
+        if (verifEl) {
+            verifEl.innerText = "VERIFIED";
+            verifEl.className = "kpi-value mono status-verified";
+        }
     } else if (inv && inv.hypotheses && inv.hypotheses.length > 0) {
         const top = Math.max(...inv.hypotheses.map(h => h.confidence));
-        document.getElementById("kpi-confidence").innerText = `${(top * 100).toFixed(1)}%`;
+        if (confEl) confEl.innerText = `${(top * 100).toFixed(1)}%`;
+        if (verifEl) {
+            verifEl.innerText = "UNVERIFIED";
+            verifEl.className = "kpi-value mono status-unverified";
+        }
+    } else {
+        if (confEl) confEl.innerText = "0.0%";
+        if (verifEl) {
+            verifEl.innerText = "UNVERIFIED";
+            verifEl.className = "kpi-value mono status-unverified";
+        }
     }
 
     if (inv && inv.budget) {
-        document.getElementById("kpi-budget").innerText = `${inv.budget.tool_calls_used} / ${inv.budget.tool_calls_max}`;
+        const used = inv.budget.tool_calls_used || 0;
+        const max = inv.budget.tool_calls_max || 15;
+        const time = inv.budget.time_seconds_used;
+        if (budgetEl) budgetEl.innerText = `${used} / ${max}${time !== undefined ? ` (${time}s)` : ""}`;
+        const pct = Math.min(100, Math.round((used / max) * 100));
+        if (budgetFillEl) budgetFillEl.style.width = `${pct}%`;
+    } else {
+        if (budgetEl) budgetEl.innerText = "0 / 15";
+        if (budgetFillEl) budgetFillEl.style.width = "0%";
     }
 }
 
-// 7. Update Stepper (Visual State Machine)
+// 8. Update Stepper (Visual State Machine)
 function updateStepper(status) {
     const stageMap = {
         "DETECTED": 1,
@@ -202,92 +337,203 @@ function updateStepper(status) {
     });
 }
 
-// 8. Event Handlers
-function setupEventHandlers() {
-    // Inject Scenario
-    document.getElementById("btn-inject-scenario").addEventListener("click", async () => {
-        const scId = document.getElementById("scenario-select").value;
-        const btn = document.getElementById("btn-inject-scenario");
+// 9. Injection & Reset Handlers
+async function handleInjectScenario(scId) {
+    const btn = document.getElementById("btn-inject-scenario");
+    if (btn) {
         btn.disabled = true;
         btn.innerText = "INJECTING...";
+    }
 
-        try {
-            await fetch(`${API_BASE}/api/scenarios/inject/${scId}`, { method: "POST" });
-            await loadActiveIncident();
-            document.getElementById("trajectory-timeline").innerHTML = "<div class=\"empty-state\">New scenario injected. Ready for autonomous investigation.</div>";
-            document.getElementById("verif-card").innerHTML = "<div class=\"empty-state\">Awaiting investigation convergence...</div>";
-            document.getElementById("remediation-content").innerHTML = "<div class=\"empty-state\">Remediation gated until root cause is verified.</div>";
-            document.getElementById("outcome-verification-panel").classList.add("hidden");
-        } catch (err) {
-            alert("Scenario injection error: " + err);
-        } finally {
+    // Immediately clear previous case results & transient UI
+    resetTransientInvestigationUI();
+
+    try {
+        const resp = await fetch(`${API_BASE}/api/scenarios/inject/${scId}`, { method: "POST" });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+        const data = await resp.json();
+        const newIncidentId = data.incident ? data.incident.incident_id : null;
+        await loadActiveIncident(newIncidentId);
+    } catch (err) {
+        alert("Scenario injection error: " + err);
+    } finally {
+        if (btn) {
             btn.disabled = false;
             btn.innerText = "INJECT SCENARIO";
         }
-    });
+    }
+}
 
-    // Run Investigation (with progressive streaming)
-    document.getElementById("btn-run-investigation").addEventListener("click", async () => {
-        if (!currentIncident) return;
-        const btn = document.getElementById("btn-run-investigation");
-        btn.disabled = true;
-        btn.innerText = "INVESTIGATING...";
-        updateStepper("INVESTIGATING");
-        document.getElementById("incident-status-pill").innerText = "STATE: INVESTIGATING";
+async function handleResetInvestigation() {
+    const refreshBtn = document.getElementById("btn-refresh-state");
+    const resetCtaBtn = document.getElementById("btn-reset-investigation-cta");
 
-        try {
-            const resp = await fetch(`${API_BASE}/api/investigate/${currentIncident.incident_id}`, { method: "POST" });
-            const data = await resp.json();
-
-            currentInvestigation = data;
-            currentReport = data.report;
-            allEvidenceStore = data.evidence_store;
-
-            renderHypotheses(data.hypotheses);
-            renderTimeline(data.action_history);
-            renderBudget(data.budget);
-            if (data.action_history.length > 0) {
-                renderNextAction(data.action_history[data.action_history.length - 1]);
-            }
-            renderVerification(data.report);
-            renderRemediation(data.report, null);
-            updateKPIs(currentIncident, data, data.report);
-            updateStepper("ROOT_CAUSE_PROPOSED");
-            document.getElementById("incident-status-pill").innerText = "STATE: ROOT_CAUSE_PROPOSED";
-
-        } catch (err) {
-            alert("Investigation error: " + err);
-        } finally {
-            btn.disabled = false;
-            btn.innerText = "RUN AUTONOMOUS INVESTIGATION";
+    [refreshBtn, resetCtaBtn].forEach(b => {
+        if (b) {
+            b.classList.add("spinning");
+            b.disabled = true;
         }
     });
 
-    // Modal Actions
-    document.getElementById("btn-modal-cancel").addEventListener("click", () => {
-        document.getElementById("remediation-modal").classList.add("hidden");
-    });
+    try {
+        // Reset transient UI state immediately
+        resetTransientInvestigationUI();
 
-    document.getElementById("btn-modal-confirm").addEventListener("click", executeConfirmedRemediation);
+        // If an incident exists, re-inject the current scenario to start fresh
+        const scenarioSelect = document.getElementById("scenario-select");
+        const scId = (currentIncident && currentIncident.scenario_id) || (scenarioSelect ? scenarioSelect.value : null);
+        if (scId) {
+            await handleInjectScenario(scId);
+        } else {
+            await loadScenarios();
+            await loadActiveIncident();
+            await loadTopology();
+        }
 
-    document.getElementById("btn-ev-modal-close").addEventListener("click", () => {
-        document.getElementById("evidence-modal").classList.add("hidden");
-    });
-
-    // Evidence Source Filter
-    document.getElementById("evidence-source-filter").addEventListener("change", () => {
-        renderEvidenceExplorer();
-    });
-
-    // Run Benchmarks
-    document.getElementById("btn-run-benchmarks").addEventListener("click", loadBenchmarks);
+        // Refresh currently active tab content if applicable
+        const activeTab = document.querySelector(".nav-item.active");
+        const targetTabId = activeTab ? activeTab.getAttribute("data-tab") : null;
+        if (targetTabId === "tab-incidents") {
+            loadIncidentsList();
+        } else if (targetTabId === "tab-evidence") {
+            renderEvidenceExplorer();
+        }
+    } catch (err) {
+        console.error("Reset investigation error:", err);
+    } finally {
+        setTimeout(() => {
+            [refreshBtn, resetCtaBtn].forEach(b => {
+                if (b) {
+                    b.classList.remove("spinning");
+                    b.disabled = false;
+                }
+            });
+        }, 300);
+    }
 }
 
-// 9. Render Hypotheses Board
+// 10. Event Handlers
+function setupEventHandlers() {
+    // Reset / Refresh Investigation Controls
+    const refreshBtn = document.getElementById("btn-refresh-state");
+    if (refreshBtn) refreshBtn.addEventListener("click", handleResetInvestigation);
+    const resetCtaBtn = document.getElementById("btn-reset-investigation-cta");
+    if (resetCtaBtn) resetCtaBtn.addEventListener("click", handleResetInvestigation);
+
+    // Scenario Dropdown Change: immediately clears previous case results and loads clean state for new case
+    const scenarioSelect = document.getElementById("scenario-select");
+    if (scenarioSelect) {
+        scenarioSelect.addEventListener("change", async (e) => {
+            const scId = e.target.value;
+            if (scId) {
+                await handleInjectScenario(scId);
+            }
+        });
+    }
+
+    // Inject Scenario Button
+    const injectBtn = document.getElementById("btn-inject-scenario");
+    if (injectBtn) {
+        injectBtn.addEventListener("click", async () => {
+            const scId = document.getElementById("scenario-select").value;
+            if (scId) {
+                await handleInjectScenario(scId);
+            }
+        });
+    }
+
+    // Run Investigation (with race-condition protection)
+    const runBtn = document.getElementById("btn-run-investigation");
+    if (runBtn) {
+        runBtn.addEventListener("click", async () => {
+            if (!currentIncident) return;
+            const targetIncidentId = currentIncident.incident_id;
+            const requestId = ++currentInvestigationRequestId;
+
+            runBtn.disabled = true;
+            runBtn.innerText = "INVESTIGATING...";
+            updateStepper("INVESTIGATING");
+            const statusPill = document.getElementById("incident-status-pill");
+            if (statusPill) statusPill.innerText = "STATE: INVESTIGATING";
+
+            try {
+                const resp = await fetch(`${API_BASE}/api/investigate/${targetIncidentId}`, { method: "POST" });
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+                const data = await resp.json();
+
+                // RACE CONDITION GUARD: If user switched cases or reset during the request, discard response
+                if (requestId !== currentInvestigationRequestId || !currentIncident || currentIncident.incident_id !== targetIncidentId) {
+                    console.warn("Discarded late investigation response for prior incident:", targetIncidentId);
+                    return;
+                }
+
+                currentInvestigation = data;
+                currentReport = data.report;
+                allEvidenceStore = data.evidence_store || {};
+
+                renderHypotheses(data.hypotheses);
+                renderTimeline(data.action_history);
+                renderBudget(data.budget);
+                if (data.action_history && data.action_history.length > 0) {
+                    renderNextAction(data.action_history[data.action_history.length - 1]);
+                }
+                renderVerification(data.report);
+                renderRemediation(data.report, null);
+                updateKPIs(currentIncident, data, data.report);
+                updateStepper("ROOT_CAUSE_PROPOSED");
+                if (statusPill) statusPill.innerText = "STATE: ROOT_CAUSE_PROPOSED";
+            } catch (err) {
+                if (requestId !== currentInvestigationRequestId || !currentIncident || currentIncident.incident_id !== targetIncidentId) {
+                    return;
+                }
+                alert("Investigation error: " + err);
+                resetTransientInvestigationUI();
+            } finally {
+                if (requestId === currentInvestigationRequestId) {
+                    runBtn.disabled = false;
+                    runBtn.innerText = (currentInvestigation && currentInvestigation.is_completed) ? "RE-RUN INVESTIGATION" : "RUN AUTONOMOUS INVESTIGATION";
+                }
+            }
+        });
+    }
+
+    // Modal Actions
+    const modalCancelBtn = document.getElementById("btn-modal-cancel");
+    if (modalCancelBtn) {
+        modalCancelBtn.addEventListener("click", () => {
+            document.getElementById("remediation-modal")?.classList.add("hidden");
+        });
+    }
+
+    const modalConfirmBtn = document.getElementById("btn-modal-confirm");
+    if (modalConfirmBtn) modalConfirmBtn.addEventListener("click", executeConfirmedRemediation);
+
+    const evModalCloseBtn = document.getElementById("btn-ev-modal-close");
+    if (evModalCloseBtn) {
+        evModalCloseBtn.addEventListener("click", () => {
+            document.getElementById("evidence-modal")?.classList.add("hidden");
+        });
+    }
+
+    // Evidence Source Filter
+    const evFilter = document.getElementById("evidence-source-filter");
+    if (evFilter) {
+        evFilter.addEventListener("change", () => {
+            renderEvidenceExplorer();
+        });
+    }
+
+    // Run Benchmarks
+    const benchBtn = document.getElementById("btn-run-benchmarks");
+    if (benchBtn) benchBtn.addEventListener("click", loadBenchmarks);
+}
+
+// 11. Render Hypotheses Board
 function renderHypotheses(hypotheses) {
     const container = document.getElementById("hypotheses-list");
+    if (!container) return;
     if (!hypotheses || hypotheses.length === 0) {
-        container.innerHTML = "<div class=\"empty-state\">No candidate hypotheses generated.</div>";
+        container.innerHTML = "<div class=\"empty-state\">No candidate hypotheses generated. Awaiting autonomous investigation.</div>";
         return;
     }
 
@@ -313,11 +559,11 @@ function renderHypotheses(hypotheses) {
                 </div>
                 <div class="hypo-footer-row">
                     <span>Target: <code>${h.target_service}</code></span>
-                    <span>Supporting: <strong>${h.supporting_evidence.length}</strong> | Contradicting: <strong>${h.contradicting_evidence.length}</strong></span>
+                    <span>Supporting: <strong>${(h.supporting_evidence || []).length}</strong> | Contradicting: <strong>${(h.contradicting_evidence || []).length}</strong></span>
                 </div>
                 <div class="hypo-detail-drawer hidden" id="drawer-${h.hypothesis_id}">
-                    <div><strong>Supporting Evidence:</strong> ${h.supporting_evidence.join(", ") || "None"}</div>
-                    <div><strong>Contradicting Evidence:</strong> ${h.contradicting_evidence.join(", ") || "None"}</div>
+                    <div><strong>Supporting Evidence:</strong> ${(h.supporting_evidence || []).join(", ") || "None"}</div>
+                    <div><strong>Contradicting Evidence:</strong> ${(h.contradicting_evidence || []).join(", ") || "None"}</div>
                     <div><strong>Assigned Action:</strong> <code>${h.next_action || "None"}</code></div>
                 </div>
             </div>
@@ -333,36 +579,42 @@ function renderHypotheses(hypotheses) {
     });
 }
 
-// 10. Render Next Action Box
+// 12. Render Next Action Box
 function renderNextAction(lastAction) {
     const box = document.getElementById("next-action-card");
+    if (!box) return;
+    if (!lastAction) {
+        box.innerHTML = "<div class=\"action-box-empty\">Awaiting active investigation loop...</div>";
+        return;
+    }
     box.innerHTML = `
         <div><strong>SELECTED DIAGNOSTIC TOOL:</strong> <code class="mono">${lastAction.tool_name}</code></div>
         <div><strong>ARGUMENTS:</strong> <code class="mono">${JSON.stringify(lastAction.arguments)}</code></div>
         <div style="margin: 4px 0;"><strong>UTILITY RATIONALE:</strong> <span style="color:var(--accent)">${lastAction.selection_reason || "Expected Information Gain vs Action Cost optimal"}</span></div>
-        <div><strong>EXECUTION LATENCY:</strong> <span class="mono">${lastAction.duration_ms.toFixed(1)}ms</span> | <strong>STATUS:</strong> <span class="mono">${lastAction.result_status}</span></div>
+        <div><strong>EXECUTION LATENCY:</strong> <span class="mono">${(lastAction.duration_ms || 0).toFixed(1)}ms</span> | <strong>STATUS:</strong> <span class="mono">${lastAction.result_status || "COMPLETED"}</span></div>
     `;
 }
 
-// 11. Render Trajectory Timeline
+// 13. Render Trajectory Timeline
 function renderTimeline(actions) {
     const container = document.getElementById("trajectory-timeline");
     const countBadge = document.getElementById("trajectory-step-count");
+    if (!container) return;
     if (!actions || actions.length === 0) {
-        container.innerHTML = "<div class=\"empty-state\">No diagnostic steps recorded.</div>";
-        countBadge.innerText = "0 STEPS";
+        container.innerHTML = "<div class=\"empty-state\">No diagnostic tool calls executed yet. Ready for autonomous investigation.</div>";
+        if (countBadge) countBadge.innerText = "0 STEPS";
         return;
     }
-    countBadge.innerText = `${actions.length} STEPS`;
+    if (countBadge) countBadge.innerText = `${actions.length} STEPS`;
 
     container.innerHTML = actions.map(a => `
         <div class="timeline-entry">
             <div class="timeline-entry-top">
                 <span class="timeline-step-num mono">STEP ${a.step_index}</span>
                 <span class="timeline-tool mono">${a.tool_name}(${JSON.stringify(a.arguments)})</span>
-                <span class="mono" style="color:var(--text-faint)">${a.duration_ms.toFixed(1)}ms</span>
+                <span class="mono" style="color:var(--text-faint)">${(a.duration_ms || 0).toFixed(1)}ms</span>
             </div>
-            <div class="timeline-reason">${a.selection_reason}</div>
+            <div class="timeline-reason">${a.selection_reason || ""}</div>
             ${a.hypothesis_impact && a.hypothesis_impact.length > 0 ? `
                 <div class="timeline-impact-row mono">
                     IMPACT: ${a.hypothesis_impact.map(i => `${i.category.toUpperCase()} (${(i.previous_confidence*100).toFixed(0)}% → ${(i.new_confidence*100).toFixed(0)}% [${i.status}])`).join(" | ")}
@@ -372,26 +624,48 @@ function renderTimeline(actions) {
     `).join("");
 }
 
-// 12. Render Budget Meter
+// 14. Render Budget Meter
 function renderBudget(budget) {
-    if (!budget) return;
-    const used = budget.tool_calls_used;
-    const max = budget.tool_calls_max;
+    const budgetText = document.getElementById("budget-meter-text");
+    const budgetFill = document.getElementById("budget-meter-fill");
+    if (!budgetText || !budgetFill) return;
+
+    if (!budget) {
+        budgetText.innerText = "0 / 15";
+        budgetFill.style.width = "0%";
+        return;
+    }
+    const used = budget.tool_calls_used || 0;
+    const max = budget.tool_calls_max || 15;
     const pct = Math.min(100, Math.round((used / max) * 100));
-    document.getElementById("budget-meter-text").innerText = `${used} / ${max} (${budget.time_seconds_used}s)`;
-    document.getElementById("budget-meter-fill").style.width = `${pct}%`;
+    const time = budget.time_seconds_used;
+    budgetText.innerText = `${used} / ${max}${time !== undefined ? ` (${time}s)` : ""}`;
+    budgetFill.style.width = `${pct}%`;
 }
 
-// 13. Render Root Cause Verification Panel
+// 15. Render Root Cause Verification Panel
 function renderVerification(report) {
     const card = document.getElementById("verif-card");
     const badge = document.getElementById("verif-status-badge");
-    const dec = report.root_cause_decision;
+    if (!card) return;
 
+    if (!report || !report.root_cause_decision) {
+        card.className = "verif-card";
+        if (badge) {
+            badge.innerText = "UNVERIFIED";
+            badge.style.color = "";
+        }
+        card.innerHTML = "<div class=\"empty-state\">Diagnosis verification will trigger upon investigation convergence.</div>";
+        return;
+    }
+
+    const dec = report.root_cause_decision;
     if (dec.is_unknown) {
         card.className = "verif-card unverified";
-        badge.innerText = "UNCERTAIN / UNKNOWN";
-        badge.style.color = "var(--critical)";
+        if (badge) {
+            badge.innerText = "UNCERTAIN / UNKNOWN";
+            badge.style.color = "var(--critical)";
+        }
         card.innerHTML = `
             <div class="verif-title" style="color:var(--critical)">ROOT CAUSE UNKNOWN</div>
             <p>${dec.description}</p>
@@ -401,21 +675,36 @@ function renderVerification(report) {
     }
 
     card.className = "verif-card verified";
-    badge.innerText = "100% PROVENANCED";
-    badge.style.color = "var(--verified)";
+    if (badge) {
+        badge.innerText = "100% PROVENANCED";
+        badge.style.color = "var(--verified)";
+    }
     card.innerHTML = `
         <div class="verif-title">VERIFIED ROOT CAUSE: ${dec.root_cause_category.toUpperCase()}</div>
         <div style="margin-bottom:6px; font-weight:600;">${dec.description}</div>
         <div><strong>Root Cause Service:</strong> <code class="mono">${dec.root_cause_service}</code> | <strong>Confidence:</strong> <span class="mono" style="color:var(--verified)">${(dec.confidence*100).toFixed(1)}%</span></div>
         <div style="margin-top:8px; font-family:var(--font-mono); font-size:11px; color:var(--verified)">
-            ● ${dec.supporting_evidence_ids.length} Grounded SHA256 Evidence Signatures Verified
+            ● ${(dec.supporting_evidence_ids || []).length} Grounded SHA256 Evidence Signatures Verified
         </div>
     `;
 }
 
-// 14. Render Remediation Panel
+// 16. Render Remediation Panel
 function renderRemediation(report, existingOutcome) {
     const container = document.getElementById("remediation-content");
+    const badge = document.getElementById("policy-status-badge");
+    if (!container) return;
+
+    if (!report || !report.root_cause_decision) {
+        container.innerHTML = "<div class=\"empty-state\">Remediation actions are strictly gated until root-cause diagnosis is verified.</div>";
+        if (badge) {
+            badge.innerText = "POLICY GATED";
+            badge.style.color = "";
+        }
+        pendingRemediationProposal = null;
+        return;
+    }
+
     const dec = report.root_cause_decision;
     const isResolved = (currentIncident && currentIncident.status === "RESOLVED") || (existingOutcome && existingOutcome.is_recovered);
 
@@ -429,7 +718,7 @@ function renderRemediation(report, existingOutcome) {
     else if (dec.root_cause_category === "queue") actionType = "scale_workers";
 
     pendingRemediationProposal = {
-        incident_id: currentIncident.incident_id,
+        incident_id: currentIncident ? currentIncident.incident_id : "",
         action_type: actionType,
         target_service: dec.root_cause_service,
         parameters: { target_version: "1.0.0" },
@@ -437,7 +726,10 @@ function renderRemediation(report, existingOutcome) {
     };
 
     if (!isTargetValid) {
-        // Target service is UNKNOWN or not in active topology -> Early Block
+        if (badge) {
+            badge.innerText = "BLOCKED";
+            badge.style.color = "var(--critical)";
+        }
         container.innerHTML = `
             <div style="border: 1px solid var(--critical); background: rgba(229, 72, 77, 0.08); padding: 12px; border-radius: 4px;">
                 <div style="color: var(--critical); font-weight: 700; font-family: var(--font-mono); font-size: 12px; margin-bottom: 6px;">
@@ -470,6 +762,11 @@ function renderRemediation(report, existingOutcome) {
         return;
     }
 
+    if (badge) {
+        badge.innerText = isResolved ? "RESOLVED" : "POLICY APPROVED";
+        badge.style.color = "var(--verified)";
+    }
+
     container.innerHTML = `
         <div><strong>RECOMMENDED BOUNDED ACTION:</strong> <code class="mono">${actionType}</code> on <code class="mono" style="color:var(--verified)">${dec.root_cause_service}</code></div>
         <div style="color:var(--text-dim); margin-top:4px;">${report.recommended_action || "Ready for human confirmation and controlled execution"}</div>
@@ -486,7 +783,9 @@ function renderRemediation(report, existingOutcome) {
 
         <div style="margin-top:12px;">
             ${isResolved ? `
-                <button class="btn btn-secondary" disabled>REMEDIATION APPLIED &amp; VERIFIED</button>
+                <button class="btn btn-secondary" disabled style="color:var(--verified); border-color:var(--verified);">
+                    ✓ REMEDIATION APPLIED &amp; VERIFIED
+                </button>
             ` : `
                 <button id="btn-open-remediation-modal" class="btn btn-amber">
                     EXECUTE BOUNDED REMEDIATION (${actionType.toUpperCase()})
@@ -496,27 +795,36 @@ function renderRemediation(report, existingOutcome) {
     `;
 
     if (!isResolved) {
-        document.getElementById("btn-open-remediation-modal").addEventListener("click", () => {
-            const modalBody = document.getElementById("modal-body-content");
-            modalBody.innerHTML = `
-                <p><strong>Proposed Action:</strong> <code class="mono">${actionType}</code></p>
-                <p><strong>Target Service:</strong> <code class="mono" style="color:var(--verified)">${dec.root_cause_service}</code></p>
-                <p><strong>Target Validation:</strong> <span class="mono" style="color:var(--verified)">VALID (Microservice Topology)</span></p>
-                <p><strong>Rationale:</strong> ${report.recommended_action || "Targeted bounded remediation"}</p>
-                <p><strong>Policy Code:</strong> <span class="mono" style="color:var(--verified)">ALLOWED</span></p>
-                <p><strong>Expected Impact:</strong> Neutralize fault injection, clear error rate, normalize p95 latency.</p>
-            `;
-            document.getElementById("remediation-modal").classList.remove("hidden");
-        });
+        const modalBtn = document.getElementById("btn-open-remediation-modal");
+        if (modalBtn) {
+            modalBtn.addEventListener("click", () => {
+                const modalBody = document.getElementById("modal-body-content");
+                if (modalBody) {
+                    modalBody.innerHTML = `
+                        <p><strong>Proposed Action:</strong> <code class="mono">${actionType}</code></p>
+                        <p><strong>Target Service:</strong> <code class="mono" style="color:var(--verified)">${dec.root_cause_service}</code></p>
+                        <p><strong>Target Validation:</strong> <span class="mono" style="color:var(--verified)">VALID (Microservice Topology)</span></p>
+                        <p><strong>Rationale:</strong> ${report.recommended_action || "Targeted bounded remediation"}</p>
+                        <p><strong>Policy Code:</strong> <span class="mono" style="color:var(--verified)">ALLOWED</span></p>
+                        <p><strong>Expected Impact:</strong> Neutralize fault injection, clear error rate, normalize p95 latency.</p>
+                    `;
+                }
+                const modal = document.getElementById("remediation-modal");
+                if (modal) modal.classList.remove("hidden");
+            });
+        }
     }
 }
 
-// 15. Execute Confirmed Remediation
+// 17. Execute Confirmed Remediation
 async function executeConfirmedRemediation() {
-    document.getElementById("remediation-modal").classList.add("hidden");
+    const modal = document.getElementById("remediation-modal");
+    if (modal) modal.classList.add("hidden");
     const container = document.getElementById("remediation-content");
     const outcomePanel = document.getElementById("outcome-verification-panel");
-    container.innerHTML = "<div class=\"empty-state\">Executing bounded remediation &amp; generating verification test traffic...</div>";
+    if (container) {
+        container.innerHTML = "<div class=\"empty-state\">Executing bounded remediation &amp; generating verification test traffic...</div>";
+    }
 
     try {
         const resp = await fetch(`${API_BASE}/api/remediate`, {
@@ -530,52 +838,67 @@ async function executeConfirmedRemediation() {
             currentOutcome = data.outcome;
             renderOutcome(data.outcome);
             updateStepper("RESOLVED");
-            document.getElementById("incident-status-pill").innerText = "STATE: RESOLVED";
-            document.getElementById("incident-status-pill").style.color = "var(--verified)";
+            const stPill = document.getElementById("incident-status-pill");
+            if (stPill) {
+                stPill.innerText = "STATE: RESOLVED";
+                stPill.style.color = "var(--verified)";
+            }
             renderRemediation(currentReport, data.outcome);
             await loadTopology(null);
         } else {
-            // Execution Blocked or Failed -> Clean failure state
             if (outcomePanel) outcomePanel.classList.add("hidden");
-            document.getElementById("incident-status-pill").innerText = "STATE: ESCALATED / BLOCKED";
-            document.getElementById("incident-status-pill").style.color = "var(--critical)";
+            const stPill = document.getElementById("incident-status-pill");
+            if (stPill) {
+                stPill.innerText = "STATE: ESCALATED / BLOCKED";
+                stPill.style.color = "var(--critical)";
+            }
 
-            container.innerHTML = `
-                <div style="border: 1px solid var(--critical); background: rgba(229, 72, 77, 0.08); padding: 12px; border-radius: 4px;">
-                    <div style="color: var(--critical); font-weight: 700; font-family: var(--font-mono); font-size: 12px; margin-bottom: 6px;">
-                        REMEDIATION BLOCKED / EXECUTION REJECTED
+            if (container) {
+                container.innerHTML = `
+                    <div style="border: 1px solid var(--critical); background: rgba(229, 72, 77, 0.08); padding: 12px; border-radius: 4px;">
+                        <div style="color: var(--critical); font-weight: 700; font-family: var(--font-mono); font-size: 12px; margin-bottom: 6px;">
+                            REMEDIATION BLOCKED / EXECUTION REJECTED
+                        </div>
+                        <div style="color: var(--text); font-size: 12px; margin-bottom: 6px;">
+                            <strong>Rejection Reason:</strong> ${data.error || data.rejection_reason || "Target validation or policy rejection"}
+                        </div>
+                        <div style="color: var(--text-dim); font-size: 11px;">
+                            Zero state mutations applied. Incident preserved for manual engineer escalation.
+                        </div>
                     </div>
-                    <div style="color: var(--text); font-size: 12px; margin-bottom: 6px;">
-                        <strong>Rejection Reason:</strong> ${data.error || data.rejection_reason || "Target validation or policy rejection"}
-                    </div>
-                    <div style="color: var(--text-dim); font-size: 11px;">
-                        Zero state mutations applied. Incident preserved for manual engineer escalation.
-                    </div>
-                </div>
-            `;
+                `;
+            }
         }
     } catch (err) {
         if (outcomePanel) outcomePanel.classList.add("hidden");
-        container.innerHTML = `
-            <div style="border: 1px solid var(--critical); padding: 12px; border-radius: 4px;">
-                <div style="color: var(--critical); font-weight: 700;">Remediation Network Failure</div>
-                <div style="color: var(--text); font-size: 12px; margin-top: 4px;">${err}</div>
-            </div>
-        `;
+        if (container) {
+            container.innerHTML = `
+                <div style="border: 1px solid var(--critical); padding: 12px; border-radius: 4px;">
+                    <div style="color: var(--critical); font-weight: 700;">Remediation Network Failure</div>
+                    <div style="color: var(--text); font-size: 12px; margin-top: 4px;">${err}</div>
+                </div>
+            `;
+        }
     }
 }
 
-// 16. Render Outcome Verification
+// 18. Render Outcome Verification
 function renderOutcome(outcome) {
     const panel = document.getElementById("outcome-verification-panel");
+    if (!panel) return;
+    if (!outcome) {
+        panel.classList.add("hidden");
+        panel.innerHTML = "";
+        return;
+    }
     panel.classList.remove("hidden");
 
-    const pre = outcome.pre_metrics;
-    const post = outcome.post_metrics;
+    const pre = outcome.pre_metrics || {};
+    const post = outcome.post_metrics || {};
 
     panel.innerHTML = `
-        <div class="outcome-title">POST-ACTION EMPIRICAL OUTCOME VERIFICATION: ${outcome.status}</div>
-        <p style="color:var(--text-dim); margin-bottom:10px;">${outcome.verification_summary}</p>
+        <div class="outcome-title">POST-ACTION EMPIRICAL OUTCOME VERIFICATION: ${outcome.status || "VERIFIED"}</div>
+        <p style="color:var(--text-dim); margin-bottom:10px;">${outcome.verification_summary || ""}</p>
 
         <table class="inst-table">
             <thead>
@@ -589,14 +912,14 @@ function renderOutcome(outcome) {
             <tbody>
                 <tr>
                     <td>Traffic Error Rate</td>
-                    <td class="mono" style="color:var(--critical)">${((pre.error_rate || 1.0)*100).toFixed(1)}%</td>
-                    <td class="mono" style="color:var(--verified)">${((post.post_traffic_error_rate || 0.0)*100).toFixed(1)}%</td>
+                    <td class="mono" style="color:var(--critical)">${((pre.error_rate !== undefined ? pre.error_rate : 1.0)*100).toFixed(1)}%</td>
+                    <td class="mono" style="color:var(--verified)">${((post.post_traffic_error_rate !== undefined ? post.post_traffic_error_rate : 0.0)*100).toFixed(1)}%</td>
                     <td><span class="pill mono" style="color:var(--verified)">NORMALIZED</span></td>
                 </tr>
                 <tr>
                     <td>Active Faults</td>
-                    <td class="mono" style="color:var(--critical)">${pre.active_faults || 1}</td>
-                    <td class="mono" style="color:var(--verified)">${post.active_faults || 0}</td>
+                    <td class="mono" style="color:var(--critical)">${pre.active_faults !== undefined ? pre.active_faults : 1}</td>
+                    <td class="mono" style="color:var(--verified)">${post.active_faults !== undefined ? post.active_faults : 0}</td>
                     <td><span class="pill mono" style="color:var(--verified)">CLEARED</span></td>
                 </tr>
                 <tr>
@@ -817,6 +1140,61 @@ function renderBenchmarkTables(data) {
     } else {
         ablationBody.innerHTML = "<tr><td colspan=\"6\" class=\"empty-state\">No ablation matrix available.</td></tr>";
     }
+
+    // Also fetch and render Multi-Model LLM Benchmark Comparison
+    loadLLMBenchmarks();
+}
+
+async function loadLLMBenchmarks() {
+    const llmBody = document.getElementById("llm-benchmark-tbody");
+    if (!llmBody) return;
+
+    try {
+        const resp = await fetch(`${API_BASE}/api/benchmark/llm`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        const benchmarks = data.llm_benchmarks || data;
+        renderLLMBenchmarkTable(benchmarks);
+    } catch (e) {
+        console.error("Failed to load LLM benchmarks:", e);
+        llmBody.innerHTML = `<tr><td colspan="8" class="empty-state">Could not load LLM comparison: ${e.message}</td></tr>`;
+    }
+}
+
+function renderLLMBenchmarkTable(benchmarks) {
+    const llmBody = document.getElementById("llm-benchmark-tbody");
+    if (!llmBody) return;
+
+    if (!benchmarks || Object.keys(benchmarks).length === 0) {
+        llmBody.innerHTML = "<tr><td colspan=\"8\" class=\"empty-state\">No multi-model benchmark records found.</td></tr>";
+        return;
+    }
+
+    llmBody.innerHTML = Object.entries(benchmarks).map(([key, b]) => {
+        const isPhi4 = key.includes("phi4") || (b.display_name && b.display_name.includes("phi4"));
+        const isHosted = key.includes("hosted") || (b.display_name && b.display_name.includes("Hosted"));
+        const p = b.partition_accuracies || {};
+
+        const genAcc = p.general !== undefined ? `${(p.general * 100).toFixed(1)}%` : "—";
+        const compAcc = p.compositional !== undefined ? `${(p.compositional * 100).toFixed(1)}%` : "—";
+        const payAcc = p.payment !== undefined ? `${(p.payment * 100).toFixed(1)}%` : "—";
+        const advAcc = p.adversarial !== undefined ? `${(p.adversarial * 100).toFixed(1)}%` : "—";
+        const retryRate = b.schema_retry_rate !== undefined ? `${(b.schema_retry_rate * 100).toFixed(0)}%` : "0%";
+        const latStr = b.avg_latency_ms ? (b.avg_latency_ms < 1000 ? `${b.avg_latency_ms.toFixed(0)}ms` : `${(b.avg_latency_ms / 1000).toFixed(1)}s`) : "< 1ms";
+
+        return `
+            <tr class="${isPhi4 ? "highlight-rcai" : ""}">
+                <td><strong class="mono" style="${isPhi4 ? "color:var(--accent);" : (isHosted ? "color:var(--warning);" : "")}">${b.display_name || key}</strong></td>
+                <td class="mono" style="font-weight:700; ${b.overall_accuracy >= 0.8 ? "color:var(--verified);" : (b.overall_accuracy >= 0.5 ? "color:var(--accent);" : "color:var(--critical);")}">${(b.overall_accuracy * 100).toFixed(1)}%</td>
+                <td class="mono">${genAcc}</td>
+                <td class="mono" style="${p.compositional < 0.6 ? "color:var(--warning);" : ""}">${compAcc}</td>
+                <td class="mono" style="${p.payment >= 1.0 ? "color:var(--verified);" : ""}">${payAcc}</td>
+                <td class="mono" style="${p.adversarial < 0.5 ? "color:var(--critical);" : ""}">${advAcc}</td>
+                <td class="mono">${retryRate}</td>
+                <td class="mono">${latStr}</td>
+            </tr>
+        `;
+    }).join("");
 }
 
 // 20. Re-run Benchmark Suite Controller

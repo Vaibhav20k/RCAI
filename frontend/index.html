@@ -16,9 +16,14 @@
             <div class="brand-glyph">RCAI</div>
             <div class="brand-meta">
                 <h1>Autonomous AI System Investigator</h1>
-                <p>Evidence-Grounded Root-Cause Investigation &amp; Bounded Remediation</p>
+                <div style="display:flex; align-items:center; gap:8px; margin-top:3px; flex-wrap:wrap;">
+                    <p style="margin:0;">Evidence-Grounded Root-Cause Investigation &amp; Bounded Remediation</p>
+                    <span id="header-llm-badge" class="badge-mono" style="font-size:10px; padding:1px 6px; background:var(--surface-3); border:1px solid var(--border); color:var(--accent);">ENGINE: OLLAMA (phi4-mini)</span>
+                    <span id="header-datasource-badge" class="badge-mono" style="font-size:10px; padding:1px 6px; background:var(--surface-3); border:1px solid var(--border); color:var(--verified);">SOURCE: SIMULATOR</span>
+                </div>
             </div>
         </div>
+
 
         <div class="header-tools">
             <div class="scenario-inject-bar">
@@ -35,6 +40,13 @@
                 </select>
                 <button id="btn-inject-scenario" class="btn btn-amber">INJECT SCENARIO</button>
             </div>
+
+            <button id="btn-refresh-state" class="btn-refresh" title="Start a fresh investigation state">
+                <svg class="refresh-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                </svg>
+                <span>Refresh Investigation</span>
+            </button>
 
             <button id="theme-toggle-btn" class="theme-switch-btn" title="Toggle Visual Theme">
                 THEME: TERMINAL
@@ -135,6 +147,9 @@
                 <div class="action-cta-row">
                     <button id="btn-run-investigation" class="btn btn-amber btn-cta">
                         RUN AUTONOMOUS INVESTIGATION
+                    </button>
+                    <button id="btn-reset-investigation-cta" class="btn btn-secondary" title="Reset current investigation to clean state">
+                        RESET
                     </button>
                     <div class="budget-meter">
                         <div class="meter-labels">
@@ -369,6 +384,36 @@
                         </thead>
                         <tbody id="ablation-tbody">
                             <tr><td colspan="6" class="empty-state">Loading ablation matrix...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Multi-Model LLM Benchmark Subpanel -->
+            <div class="llm-bench-subpanel" style="margin-top:24px;">
+                <div class="panel-header">
+                    <div>
+                        <span class="panel-tag">PLUGGABLE MULTI-MODEL LLM BENCHMARK COMPARISON</span>
+                        <p class="panel-subtext">Evaluating Local Ollama Models (sized for 4GB VRAM mobile GPU) vs Rule-Based and Hosted GPT-4o baselines across all 4 partitions.</p>
+                    </div>
+                    <span class="badge-mono" style="color:var(--accent);">LOCAL GPU (RTX 3050) &amp; HOSTED</span>
+                </div>
+                <div class="table-container">
+                    <table class="inst-table">
+                        <thead>
+                            <tr>
+                                <th>MODEL / ENGINE</th>
+                                <th>OVERALL ACC. (%)</th>
+                                <th>GENERAL (5)</th>
+                                <th>COMPOSITIONAL (4)</th>
+                                <th>PAYMENT (3)</th>
+                                <th>ADVERSARIAL (3)</th>
+                                <th>SCHEMA RETRY RATE</th>
+                                <th>AVG LATENCY</th>
+                            </tr>
+                        </thead>
+                        <tbody id="llm-benchmark-tbody">
+                            <tr><td colspan="8" class="empty-state">Loading multi-model LLM benchmark evaluations...</td></tr>
                         </tbody>
                     </table>
                 </div>

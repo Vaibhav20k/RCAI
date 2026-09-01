@@ -11,22 +11,34 @@ from tools.registry import ToolRegistry, create_default_investigation_tools
 from tools.base import ToolExecutionStatus
 from observability.models import NormalizedEvidence, EvidenceSource, EvidenceType
 
+from agent.llm.interface import BaseLLMBackend
+
 class ActiveInvestigator:
     def __init__(
         self,
         tool_registry: Optional[ToolRegistry] = None,
         max_tool_calls: int = 15,
         max_time_seconds: float = 60.0,
-        confidence_threshold: float = 0.70
+        confidence_threshold: float = 0.70,
+        llm_backend: Optional[BaseLLMBackend] = None
     ):
         self.tool_registry = tool_registry or create_default_investigation_tools()
         self.selector = EvidenceSelector(self.tool_registry)
         self.max_tool_calls = max_tool_calls
         self.max_time_seconds = max_time_seconds
         self.confidence_threshold = confidence_threshold
+        self.llm_backend = llm_backend
 
-    def start_investigation(self, incident: AgentIncidentView) -> InvestigationState:
-        hypo_set = HypothesisGenerator.generate_candidate_hypotheses(incident)
+    def start_investigation(
+        self,
+        incident: AgentIncidentView,
+        initial_evidence: Optional[List[NormalizedEvidence]] = None
+    ) -> InvestigationState:
+        hypo_set = HypothesisGenerator.generate_candidate_hypotheses(
+            incident=incident,
+            evidence=initial_evidence,
+            llm_backend=self.llm_backend
+        )
         state = InvestigationState(
             investigation_id=f"inv_{uuid.uuid4().hex[:8]}",
             incident=incident,

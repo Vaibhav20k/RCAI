@@ -1,0 +1,62 @@
+{
+  "rule_based": {
+    "backend_name": "rule_based",
+    "display_name": "Static Rules Baseline",
+    "total_evaluated": 15,
+    "overall_accuracy": 0.40,
+    "partition_accuracies": {
+      "general": 0.60,
+      "compositional": 0.25,
+      "payment": 0.667,
+      "adversarial": 0.00
+    },
+    "schema_retry_rate": 0.0,
+    "avg_latency_ms": 0.05,
+    "status": "COMPLETED"
+  },
+  "hosted_gpt4o": {
+    "backend_name": "hosted (gpt-4o)",
+    "display_name": "Hosted LLM Baseline (GPT-4o)",
+    "total_evaluated": 15,
+    "overall_accuracy": 0.867,
+    "partition_accuracies": {
+      "general": 1.00,
+      "compositional": 0.75,
+      "payment": 1.00,
+      "adversarial": 0.667
+    },
+    "schema_retry_rate": 0.0,
+    "avg_latency_ms": 850.0,
+    "status": "COMPLETED"
+  },
+  "ollama_phi4_mini": {
+    "backend_name": "ollama (phi4-mini)",
+    "display_name": "Ollama: phi4-mini (3.8B)",
+    "total_evaluated": 15,
+    "overall_accuracy": 0.60,
+    "partition_accuracies": {
+      "general": 0.60,
+      "compositional": 0.50,
+      "payment": 1.00,
+      "adversarial": 0.333
+    },
+    "schema_retry_rate": 0.20,
+    "avg_latency_ms": 14200.0,
+    "status": "COMPLETED"
+  },
+  "ollama_qwen3_4b": {
+    "backend_name": "ollama (qwen3:4b)",
+    "display_name": "Ollama: qwen3:4b (4B)",
+    "total_evaluated": 4,
+    "overall_accuracy": 0.25,
+    "partition_accuracies": {
+      "general": 1.00,
+      "compositional": 0.00,
+      "payment": 0.00,
+      "adversarial": 0.00
+    },
+    "schema_retry_rate": 0.50,
+    "avg_latency_ms": 254000.0,
+    "status": "PARTITION_SAMPLE"
+  }
+}

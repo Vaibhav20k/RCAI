@@ -5,11 +5,21 @@ from typing import Dict, Any, List, Optional
 from agent.investigator.state import InvestigationState
 from agent.verification.models import RootCauseDecision, IncidentReport
 from agent.hypothesis.models import HypothesisCategory, HypothesisStatus
+from agent.policies.models import RemediationProposal
+from agent.playbooks.selector import PlaybookSelector, global_playbook_selector
+from agent.llm.interface import BaseLLMBackend
 from observability.models import NormalizedEvidence
 
 class RootCauseVerifier:
-    def __init__(self, min_confidence_for_certainty: float = 0.65):
+    def __init__(
+        self,
+        min_confidence_for_certainty: float = 0.65,
+        playbook_selector: Optional[PlaybookSelector] = None,
+        llm_backend: Optional[BaseLLMBackend] = None
+    ):
         self.min_confidence_for_certainty = min_confidence_for_certainty
+        self.playbook_selector = playbook_selector or global_playbook_selector
+        self.llm_backend = llm_backend
 
     def verify_and_generate_decision(self, state: InvestigationState) -> RootCauseDecision:
         decision_id = f"dec_{uuid.uuid4().hex[:8]}"
@@ -85,6 +95,14 @@ class RootCauseVerifier:
         report_id = f"rep_{uuid.uuid4().hex[:8]}"
         duration_ms = (time.time() - state.start_time) * 1000.0
         
+        # Select playbook from catalogue via PlaybookSelector
+        proposal, error_msg = self.playbook_selector.select_playbook(
+            decision=decision,
+            incident=state.incident,
+            evidence_trail=decision.provenance_audit,
+            llm_backend=self.llm_backend
+        )
+
         recs = {
             HypothesisCategory.DEPLOYMENT: f"Rollback {decision.root_cause_service} to previous known good release",
             HypothesisCategory.DATABASE: f"Apply database query optimization / index rebuild on {decision.root_cause_service}",
@@ -93,6 +111,11 @@ class RootCauseVerifier:
             HypothesisCategory.QUEUE: f"Scale queue consumer workers for {decision.root_cause_service}",
             HypothesisCategory.UNKNOWN: "Escalate to on-call engineer with collected audit telemetry"
         }
+
+        if proposal:
+            rec_action_str = f"Execute catalogue playbook '{proposal.action_type.value}' on {proposal.target_service}: {proposal.rationale}"
+        else:
+            rec_action_str = recs.get(decision.root_cause_category, "Manual SRE inspection required")
 
         exec_summary = (
             f"Incident on {state.incident.service}: {state.incident.symptom}. "
@@ -109,5 +132,6 @@ class RootCauseVerifier:
             investigation_duration_ms=duration_ms,
             executive_summary=exec_summary,
             evidence_trail=decision.provenance_audit,
-            recommended_action=recs.get(decision.root_cause_category, "Manual SRE inspection required")
+            recommended_action=rec_action_str,
+            recommended_proposal=proposal
         )

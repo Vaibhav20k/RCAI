@@ -81,7 +81,7 @@ def test_no_emojis_in_source_or_docs():
     # Exclude .git and .pytest_cache
     for path in repo_root.rglob("*"):
         if path.is_file() and path.suffix in scan_extensions:
-            if ".git" in path.parts or ".pytest_cache" in path.parts:
+            if any(p.startswith(".venv") or p in {".git", ".pytest_cache", "venv", "env", "__pycache__"} for p in path.parts):
                 continue
             text = path.read_text(encoding="utf-8", errors="ignore")
             for char in text:
