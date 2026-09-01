@@ -1,7 +1,8 @@
-# Frontend Investigation Console REST API Server
 import time
+import hmac
+import base64
 from typing import Dict, Any, List, Optional
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from simulator.services.runner import InProcessCluster
@@ -14,12 +15,17 @@ from agent.investigator.loop import ActiveInvestigator
 from agent.investigator.state import InvestigationState
 from agent.verification.engine import RootCauseVerifier
 from agent.verification.models import RootCauseDecision, IncidentReport
-from agent.policies.models import RemediationProposal, RemediationActionType
+from agent.policies.models import RemediationProposal, RemediationActionType, ExecutionAuthorizationMode
 from agent.policies.engine import PolicyEngine, VALID_TOPOLOGY_SERVICES
-from tools.remediation.executor import BoundedRemediationExecutor
-from agent.verification.outcome import RemediationOutcomeVerifier
+from tools.remediation.factory import get_remediation_executor
+from agent.verification.outcome import RemediationOutcomeVerifier, get_outcome_verifier
 from benchmark.evaluators.evaluator import BenchmarkRunner
 from benchmark.evaluators.ablation import AblationExperimentRunner
+from backend.ingestion.models import AlertmanagerPayload, AlertIngestionResult
+from backend.ingestion.normalizer import AlertNormalizer
+from backend.escalation.models import EscalationBrief
+from backend.escalation.dispatcher import EscalationDispatcher, global_escalation_dispatcher
+from backend.config import get_settings
 
 app = FastAPI(title="RCAI Investigation Console API", version="1.0.0")
 
@@ -42,8 +48,8 @@ tools_reg = create_default_investigation_tools(cluster)
 investigator = ActiveInvestigator(tool_registry=tools_reg)
 verifier = RootCauseVerifier()
 policy_engine = PolicyEngine()
-remediation_executor = BoundedRemediationExecutor(cluster, policy_engine)
-outcome_verifier = RemediationOutcomeVerifier(cluster)
+remediation_executor = get_remediation_executor(cluster, policy_engine)
+outcome_verifier = get_outcome_verifier(cluster)
 
 incidents_db: Dict[str, Incident] = {}
 investigations_db: Dict[str, InvestigationState] = {}
@@ -64,12 +70,21 @@ incidents_db[seed_inc.incident_id] = seed_inc
 
 @app.get("/health")
 def health():
+    cfg = get_settings()
     return {
         "status": "UP",
         "service": "rcai-investigation-backend",
-        "version": "2.0.0",
+        "version": "2.2.0",
+        "llm_backend": cfg.LLM_BACKEND,
+        "ollama_model": cfg.OLLAMA_MODEL if cfg.LLM_BACKEND == "ollama" else None,
+        "data_source": cfg.DATA_SOURCE,
+        "remediation_target": cfg.REMEDIATION_EXECUTION_TARGET,
+        "auto_execution_enabled": cfg.AUTO_EXECUTE_ENABLED,
         "timestamp": time.time()
     }
+
+
+
 
 @app.get("/api/scenarios")
 def list_scenarios():
@@ -233,7 +248,11 @@ def execute_remediation(req: RemediationRequest):
     )
 
     inc.status = IncidentStatus.REMEDIATION_PENDING
-    pre_metrics = outcome_verifier.capture_metrics_snapshot(req.target_service)
+    if hasattr(outcome_verifier, "capture_metrics_snapshot"):
+        pre_metrics = outcome_verifier.capture_metrics_snapshot(req.target_service)
+    else:
+        pre_metrics = outcome_verifier.query_live_metrics_snapshot(req.target_service)
+
     exec_res = remediation_executor.execute_remediation(proposal)
 
     if exec_res.status.value != "SUCCESS":
@@ -247,12 +266,20 @@ def execute_remediation(req: RemediationRequest):
         }
 
     inc.status = IncidentStatus.REMEDIATION_EXECUTED
-    outcome = outcome_verifier.verify_remediation_outcome(
-        proposal=proposal,
-        pre_metrics=pre_metrics,
-        incident=inc,
-        test_traffic_count=10
-    )
+    if hasattr(outcome_verifier, "verify_live_remediation_outcome"):
+        outcome = outcome_verifier.verify_live_remediation_outcome(
+            proposal=proposal,
+            pre_metrics=pre_metrics,
+            incident=inc,
+            executor_reversal_fn=getattr(remediation_executor, "trigger_reversal", None)
+        )
+    else:
+        outcome = outcome_verifier.verify_remediation_outcome(
+            proposal=proposal,
+            pre_metrics=pre_metrics,
+            incident=inc,
+            test_traffic_count=10
+        )
 
     outcomes_db[inc.incident_id] = outcome.model_dump()
 
@@ -261,6 +288,173 @@ def execute_remediation(req: RemediationRequest):
         "incident_status": inc.status.value,
         "outcome": outcome.model_dump()
     }
+
+@app.post("/api/alerts/webhook", response_model=AlertIngestionResult)
+def receive_alertmanager_webhook(
+    payload: AlertmanagerPayload,
+    authorization: Optional[str] = Header(None),
+    x_alertmanager_secret: Optional[str] = Header(None, alias="X-Alertmanager-Secret"),
+    secret: Optional[str] = None,
+    token: Optional[str] = None
+):
+    settings = get_settings()
+
+    # 1. Webhook Authentication & Shared Secret Verification
+    if settings.ALERTMANAGER_WEBHOOK_SECRET:
+        expected_secret = settings.ALERTMANAGER_WEBHOOK_SECRET.strip()
+        auth_header = (authorization or "").strip()
+        
+        token_match = False
+        if x_alertmanager_secret and hmac.compare_digest(x_alertmanager_secret.strip(), expected_secret):
+            token_match = True
+        elif auth_header.startswith("Bearer ") and hmac.compare_digest(auth_header[7:].strip(), expected_secret):
+            token_match = True
+        elif auth_header.startswith("Basic "):
+            try:
+                decoded = base64.b64decode(auth_header[6:].strip()).decode("utf-8")
+                parts = decoded.split(":", 1)
+                if any(hmac.compare_digest(p, expected_secret) for p in parts if p):
+                    token_match = True
+            except Exception:
+                pass
+        elif secret and hmac.compare_digest(secret.strip(), expected_secret):
+            token_match = True
+        elif token and hmac.compare_digest(token.strip(), expected_secret):
+            token_match = True
+
+        if not token_match:
+            raise HTTPException(
+                status_code=401,
+                detail="Unauthorized: Invalid or missing Alertmanager webhook authentication secret"
+            )
+
+    created_ids = []
+    investigations_started = []
+    duplicates = 0
+    errors = []
+
+    for alert in payload.alerts:
+        if alert.status.lower() != "firing":
+            continue
+
+        try:
+            inc = AlertNormalizer.normalize_alertmanager_alert(alert)
+            # Deduplication: check if active incident already exists on this service
+            existing = [i for i in incidents_db.values() if i.service == inc.service and i.status in [IncidentStatus.DETECTED, IncidentStatus.INVESTIGATING]]
+            if existing:
+                duplicates += 1
+                continue
+
+            incidents_db[inc.incident_id] = inc
+            created_ids.append(inc.incident_id)
+
+            if settings.AUTO_START_INVESTIGATION_ON_ALERT:
+                # Run active investigation
+                inv_state = investigator.start_investigation(inc.to_agent_view())
+                inc.status = IncidentStatus.INVESTIGATING
+                while not inv_state.is_completed:
+                    investigator.step(inv_state)
+
+                investigations_db[inc.incident_id] = inv_state
+                investigations_started.append(inc.incident_id)
+
+                report = verifier.generate_incident_report(inv_state)
+                reports_db[inc.incident_id] = report.model_dump()
+
+                # If root cause is unknown or confidence < threshold -> dispatch escalation
+                if report.root_cause_decision.is_unknown or report.root_cause_decision.confidence < 0.70:
+                    brief = global_escalation_dispatcher.build_brief(
+                        incident=inc,
+                        investigation_state=inv_state,
+                        incident_report=report,
+                        reason=f"Automated root cause diagnostic confidence ({report.root_cause_decision.confidence*100:.1f}%) is insufficient or unproven"
+                    )
+                    global_escalation_dispatcher.dispatch_escalation(brief, incident=inc)
+
+                elif report.recommended_proposal:
+                    # Check pre-authorized autonomous execution eligibility
+                    is_auto, auto_reason = policy_engine.evaluate_auto_execution_eligibility(
+                        proposal=report.recommended_proposal,
+                        decision=report.root_cause_decision,
+                        incident=inc
+                    )
+
+                    if is_auto:
+                        auto_proposal = report.recommended_proposal.model_copy()
+                        auto_proposal.authorization_mode = ExecutionAuthorizationMode.PRE_AUTHORIZED_AUTO
+                        inc.status = IncidentStatus.REMEDIATION_PENDING
+
+                        if hasattr(outcome_verifier, "capture_metrics_snapshot"):
+                            pre_metrics = outcome_verifier.capture_metrics_snapshot(inc.service)
+                        else:
+                            pre_metrics = outcome_verifier.query_live_metrics_snapshot(inc.service)
+
+                        exec_res = remediation_executor.execute_remediation(auto_proposal)
+
+                        if exec_res.status.value == "SUCCESS":
+                            inc.status = IncidentStatus.REMEDIATION_EXECUTED
+                            if hasattr(outcome_verifier, "verify_live_remediation_outcome"):
+                                outcome = outcome_verifier.verify_live_remediation_outcome(
+                                    proposal=auto_proposal,
+                                    pre_metrics=pre_metrics,
+                                    incident=inc,
+                                    executor_reversal_fn=getattr(remediation_executor, "trigger_reversal", None)
+                                )
+                            else:
+                                outcome = outcome_verifier.verify_remediation_outcome(
+                                    proposal=auto_proposal,
+                                    pre_metrics=pre_metrics,
+                                    incident=inc,
+                                    test_traffic_count=10
+                                )
+
+                            outcomes_db[inc.incident_id] = outcome.model_dump()
+
+                            if not outcome.is_recovered:
+                                brief = global_escalation_dispatcher.build_brief(
+                                    incident=inc,
+                                    investigation_state=inv_state,
+                                    incident_report=report,
+                                    reason=f"Pre-authorized auto-remediation failed live verification: {outcome.verification_summary}"
+                                )
+                                global_escalation_dispatcher.dispatch_escalation(brief, incident=inc)
+                        else:
+                            inc.status = IncidentStatus.ESCALATED
+                            brief = global_escalation_dispatcher.build_brief(
+                                incident=inc,
+                                investigation_state=inv_state,
+                                incident_report=report,
+                                reason=f"Pre-authorized execution rejected: {exec_res.error_message}"
+                            )
+                            global_escalation_dispatcher.dispatch_escalation(brief, incident=inc)
+                    else:
+                        # Stays in proposed state for manual human confirmation modal
+                        inc.status = IncidentStatus.ROOT_CAUSE_PROPOSED
+
+        except Exception as exc:
+            errors.append(str(exc))
+
+    return AlertIngestionResult(
+        status="PROCESSED",
+        total_alerts_received=len(payload.alerts),
+        incidents_created=created_ids,
+        investigations_started=investigations_started,
+        duplicates_skipped=duplicates,
+        errors=errors
+    )
+
+@app.get("/api/escalations")
+def list_escalations():
+    return {
+        "escalations": [b.model_dump() for b in global_escalation_dispatcher.active_escalations.values()]
+    }
+
+@app.get("/api/escalations/{incident_id}")
+def get_escalation(incident_id: str):
+    brief = global_escalation_dispatcher.active_escalations.get(incident_id)
+    if not brief:
+        raise HTTPException(status_code=404, detail="Escalation brief not found for this incident")
+    return brief.model_dump()
 
 @app.get("/api/benchmark/summary")
 def get_benchmark_summary():
@@ -358,6 +552,37 @@ def run_benchmark_suite():
         "benchmarks": bench_data,
         "ablations": ablation_data
     }
+
+@app.get("/api/benchmark/llm")
+def get_llm_benchmark_summary():
+    import pathlib, json
+    docs_dir = pathlib.Path("docs/results")
+    llm_bench_file = docs_dir / "llm_benchmark_comparison.json"
+    if llm_bench_file.exists():
+        try:
+            data = json.loads(llm_bench_file.read_text(encoding="utf-8"))
+            return {
+                "status": "VALIDATED",
+                "is_precomputed": True,
+                "llm_benchmarks": data
+            }
+        except Exception:
+            pass
+
+    from benchmark.evaluators.llm_benchmark import LLMBenchmarkRunner
+    runner = LLMBenchmarkRunner(cluster)
+    reports = runner.run_multi_backend_comparison(ALL_SCENARIOS)
+    data = {k: v.model_dump() for k, v in reports.items()}
+
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    llm_bench_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+    return {
+        "status": "VALIDATED",
+        "is_precomputed": False,
+        "llm_benchmarks": data
+    }
+
 @app.get("/api/topology")
 def get_topology():
     services = [
