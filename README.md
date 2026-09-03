@@ -1,195 +1,203 @@
 # RCAI: Root Cause Analysis Intelligence
-## Evidence-Driven Autonomous Investigation, Verification, and Bounded Remediation
 
-> **Live Console (Frontend)**: [https://rcai-six.vercel.app/](https://rcai-six.vercel.app/)  
-> **Backend Service**: [https://rcai-backend.onrender.com/](https://rcai-backend.onrender.com/)  
-> **Health Check**: [https://rcai-backend.onrender.com/health](https://rcai-backend.onrender.com/health)  
-> **Repository**: [https://github.com/Vaibhav20k/RCAI](https://github.com/Vaibhav20k/RCAI)  
-> **Edition**: v2.2.0 - Pluggable LLM Backends & Live Infrastructure Integration  
-> **Test Suite**: 150+ Passing Tests (Full Suite Passing)
+An incident hits one of your services — RCAI diagnoses the root cause, proposes a fix, and (with your approval) applies it. Drop it into your existing `docker-compose.yml` and it starts working immediately, with no manual configuration.
 
 ---
 
-## 1. Executive Summary
+## What You'll See
 
-### What is RCAI?
-> **RCAI** is an evidence-driven autonomous investigation system that actively evaluates competing root-cause hypotheses, selects informative diagnostic evidence, verifies diagnoses with cryptographic provenance, executes bounded remediations through deterministic policy gates, and independently verifies recovery.
+Clone RCAI, run a single command against your project, and watch it discover your running services and metrics endpoints in seconds. When an incident occurs — whether a real latency spike or an injected simulator fault — RCAI evaluates competing hypotheses against live telemetry, isolates the verified root cause with cryptographic SHA-256 provenance, and presents an actionable remediation proposal. You see an operator console with live hypothesis confidence bars, an evidence timeline, and a "Confirm Remediation" button that applies the verified playbook and confirms system recovery.
+
+<!-- TODO: Add a short (15-30s) demo video/GIF here before v1 release -->
+![demo](docs/demo.gif)
+
+---
+
+## Quickstart
+
+RCAI drops directly into any existing Docker Compose application with **zero manual topology configuration**. By default, it runs on a deterministic `rule_based` inference backend — **no OpenAI API keys, cloud tokens, or local Ollama instances required**.
+
+### Option A: 1-Click Interactive Installer (Recommended)
+
+From the root of your cloned RCAI repository, point the installer at your target Compose file:
+
+```bash
+# 1. Clone RCAI
+git clone https://github.com/Vaibhav20k/RCAI.git
+cd RCAI
+
+# 2. Inspect your compose file and launch RCAI
+./install.sh -f /path/to/your/docker-compose.yml
+```
+
+The installer inspects your project manifest, detects services and databases, generates Prometheus scrape targets, and prompts you to boot RCAI:
+
+```text
+====================================================================
+    RCAI (Root Cause AI) — Drop-In Auto-Discovery Installer        
+====================================================================
+Inspecting Compose manifest: docker-compose.yml ...
+
+Discovered 4 services: [web, api, worker, redis].
+2 have Prometheus metrics endpoints (/metrics).
+Database-like services detected: [redis].
+
+Prometheus scrape configuration generated: .rcai/prometheus.yml
+====================================================================
+Start RCAI against this topology? [Y/n]
+```
+
+### Option B: Multi-File Compose (Leaves Your Existing Files Untouched)
+
+If you prefer using standard Docker Compose commands without running the installer script:
+
+```bash
+docker compose -f /path/to/your/docker-compose.yml -f docker-compose.snippet.yml up -d
+```
+
+RCAI and its optional bundled Prometheus instance will boot, discover your containers via the host's read-only Docker socket (`/var/run/docker.sock:ro`), and bind to port `8000`.
+
+- **Web Console**: [http://localhost:8000](http://localhost:8000)
+- **Health Check**: [http://localhost:8000/health](http://localhost:8000/health)
+- **Discovered Topology**: [http://localhost:8000/api/topology](http://localhost:8000/api/topology)
+
+---
+
+### Alternative: Local Development / Running from Source
+
+If you want to run, benchmark, or modify RCAI directly on your host machine in Python:
+
+```bash
+# 1. Set up virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# 2. Run the full regression test suite (160 tests passing)
+pytest tests/
+
+# 3. Run the interactive CLI incident simulation demo
+python scripts/demo.py
+
+# 4. Launch the local FastAPI backend server
+uvicorn backend.api.app:app --host 127.0.0.1 --port 8000
+```
+
+---
+
+## Honest Scope
+
+This is a reference architecture for constrained, safety-gated agentic incident remediation — not a production-hardened ops platform. The safety model (a fixed playbook catalogue, deterministic policy gating, human approval by default, and audited live reversal) is the core pattern worth studying; treat live-infrastructure execution features as an empirical demonstration of that pattern, not something to point at sensitive production infrastructure without your own comprehensive review.
+
+---
+
+## How It Works
+
+RCAI implements an active epistemic investigation loop: rather than dumping telemetry into an unconstrained LLM prompt and asking for a diagnosis, it treats incident diagnosis as a structured hypothesis-elimination problem.
 
 ```mermaid
 flowchart TD
-    A[Incident Alert Received] --> B[Generate Competing Hypotheses]
-    B --> C[Select Informative Evidence]
+    A[Incident Alert / Ingestion] --> B[Seed Hypotheses based on Discovered Capabilities]
+    B --> C[Evaluate Diagnostic Entropy & Tool Utility]
     C --> D[Execute Diagnostic Evidence Tool]
-    D --> E[Update Hypothesis Confidences]
-    E --> F{Root Cause Verified?}
-    F -- No / Insufficient Evidence --> C
-    F -- Yes --> G[Deterministic Policy Gate]
-    G --> H[Execute Bounded Remediation]
-    H --> I[Independent Live Outcome Verification]
-    I --> J{System Recovered?}
-    J -- Yes --> K[Mark Incident Resolved]
-    J -- No --> L[Compensating Rollback / Safe Refusal / Escalate]
+    D --> E[Normalize Telemetry with SHA-256 Provenance]
+    E --> F[Update Hypothesis Confidences]
+    F --> G{Root Cause Verified >= 0.70?}
+    G -- No / Ambiguous Evidence --> C
+    G -- Yes --> H[Playbook Catalogue Selection]
+    H --> I[Deterministic Safety Policy Gate]
+    I --> J{Human Operator Approval}
+    J -- Approved --> K[Execute Bounded Remediation]
+    K --> L[Independent Live Telemetry Verification]
+    L --> M{System Recovered?}
+    M -- Yes --> N[Mark Incident Resolved]
+    M -- No --> O[Compensating Rollback & Human Escalation]
 ```
 
-### Why Does It Exist?
-Traditional monitoring systems declare **"Something is wrong."**  
-Conventional LLM incident copilots declare **"This might be a database problem."**  
-**RCAI investigates**: it formulates structured competing hypotheses, selects discriminative evidence, attaches cryptographic provenance, evaluates deterministic safety policies, and verifies post-remediation system health.
+### 1. Capability-Aware Hypothesis Seeding
+When an incident is detected, RCAI seeds structured competing hypotheses (`RESOURCE`, `DEPLOYMENT`, `DEPENDENCY`, `DATABASE`, `QUEUE`). Discovered container capabilities dynamically gate hypothesis seeding: non-database services never generate database hypotheses, and worker queues are only considered for worker containers or queue-dependent services.
+
+### 2. Active Investigation Loop & Evidence Normalization
+Instead of pulling entire log streams, the agent sequentially executes diagnostic tools (`query_metrics`, `query_logs`, `query_traces`, `inspect_deployments`, `query_db_metrics`) based on maximum expected information gain. Every retrieved observation is converted into an immutable `NormalizedEvidence` record tagged with a SHA-256 cryptographic provenance hash.
+
+### 3. Five-Tier Safety Model
+RCAI enforces strict boundaries between diagnostic exploration and mutation:
+
+| Safety Tier | Permissions | Allowed Operations | Guardrails |
+|---|---|---|---|
+| **READ_ONLY** | Unrestricted | `query_metrics`, `query_logs`, `query_traces`, `inspect_deployments`, `query_db_metrics`, `inspect_health` | Read-only access; zero state mutation |
+| **RECOMMEND** | Advisory | Diagnostic reports, mitigation proposals | Operator review required |
+| **APPROVAL_REQUIRED** *(Default)* | Human Gate | `rollback_version`, `restart_service`, `scale_replicas`, `optimize_db_index`, `circuit_breaker`, `flush_cache`, `toggle_feature_flag` | **Default remediation path**. All catalogued playbooks require operator approval via the "Confirm Remediation" modal |
+| **CONTROLLED_EXECUTION** | Autonomous Mutation | Pre-authorized subset of catalogued playbooks | **Opt-in, disabled by default** (`AUTO_EXECUTE_ENABLED=false`). Restricted to explicit whitelist (`AUTO_EXECUTE_PLAYBOOKS`), ≥90% diagnostic confidence, 100% SHA-256 provenance, and policy clearance |
+| **FORBIDDEN** | Blocked | Arbitrary bash, `rm`, `subprocess`, raw unvalidated SQL, out-of-catalogue mutations | Structurally blocked by parser and policy engine |
+
+### 4. Bounded Playbook Catalogue
+Remediation is strictly confined to a pre-defined catalogue of 7 safe operations:
+- `rollback_version`: Reverts container deployment and release configuration on the target service to the previous verified stable release version.
+- `restart_service` / `restart_workers`: Gracefully restarts container instances or worker process pools to clear memory leaks, thread starvation, or deadlocks.
+- `scale_replicas` / `scale_workers`: Expands container replica counts or worker concurrency to drain traffic surges and message queue backlogs.
+- `optimize_db_index`: Rebuilds and optimizes query execution plans and database indexes on the target service schema (strictly filtered out for non-database containers).
+- `circuit_breaker`: Trips fast-fail circuit breaker thresholds to shed load and stop cascading degradation from failing third-party partner dependencies.
+- `flush_cache`: Flushes stale or corrupted cache partitions and connection handles for the target service.
+- `toggle_feature_flag`: Toggles runtime feature flag state to disable newly introduced experimental code paths without requiring a full deployment rollback.
+
+Arbitrary bash commands, free-form script generation, and unrestricted network operations are structurally blocked by the policy engine.
+
+### 5. Independent Live Outcome Verification & Rollback
+Applying a fix is not the end of the loop. RCAI queries live metrics over a stabilization window to independently verify that error rates, latency (p99), and throughput have returned to healthy baselines. If post-remediation telemetry indicates ongoing degradation, RCAI triggers an automatic compensating rollback and escalates to human on-call with an audited incident brief.
 
 ---
 
-## 2. Documentation Directory & Navigation
+### Empirical Benchmark Results
 
-Navigate through the complete technical and research documentation suite:
-
-| Document | Purpose | Key Topics Covered |
-|---|---|---|
-| **[docs/CONCEPTS.md](docs/CONCEPTS.md)** | **Technical Concepts Guide** | Epistemic search, hypothesis state machine, information gain utility, SHA-256 provenance, AI vs deterministic boundaries |
-| **[docs/VISION.md](docs/VISION.md)** | **Project Vision & Horizons** | Beyond passive summarization, current capabilities, learned RL policies, dynamic causal discovery |
-| **[docs/SUBMISSION.md](docs/SUBMISSION.md)** | **Submission & Reviewer Guide** | Submission summary, frozen benchmark results, live demo flow, reviewer FAQ, failure mode analysis |
-| **[docs/evaluation.md](docs/evaluation.md)** | **Empirical Benchmark Suite** | 47-scenario inventory, baseline comparisons, seen vs unseen matrix, adversarial resilience, multi-seed stress data |
-| **[docs/architecture.md](docs/architecture.md)** | **Subsystem Architecture** | Multi-modal collectors, normalizers, active investigator loop, policy gate, outcome verifier |
-| **[docs/safety.md](docs/safety.md)** | **Safety & Policy Engine** | Permission tiers, idempotency guarantees, zero arbitrary bash execution, human approval boundaries |
-| **[docs/external-validation.md](docs/external-validation.md)** | **External OTel Validation** | Google Online Boutique telemetry ingestion, live fault injection, diagnosis report |
-| **[docs/decisions.md](docs/decisions.md)** | **Architecture Decision Records** | Decision log on state machine design, provenance hashing, deterministic safety gates |
-| **[docs/PHASES.md](docs/PHASES.md)** | **v1 Phase Execution Log** | Foundations, telemetry engine, active investigation, baseline implementation records |
-| **[docs/RCAI_V2_MASTER_SPEC.md](docs/RCAI_V2_MASTER_SPEC.md)** | **RCAI v2 Master Specification** | Authoritative v2 expansion specification across payments, adversarial, and generalization |
-| **[docs/RCAI_V2_PHASES.md](docs/RCAI_V2_PHASES.md)** | **v2 Phase Implementation Plan** | Milestone execution blueprint across all architectural phases |
-| **[benchmark_manifest.json](benchmark_manifest.json)** | **Frozen Benchmark Manifest** | Machine-readable audit file locking all scenario IDs, tools, and evaluation settings |
-
----
-
-## 3. Core Architectural Capabilities
-
-### A. Pluggable Multi-Backend LLM Engine
-RCAI features an environment-swappable LLM abstraction layer with strict Pydantic JSON schema enforcement and automated reject-and-retry self-repair:
-- **`rule_based`**: High-performance, deterministic baseline executing in <1ms for CI regression testing.
-- **`ollama`**: Local on-device execution supporting 4GB VRAM mobile GPUs (e.g. RTX 3050 Laptop GPU) via CUDA acceleration with configurable context window capping (`OLLAMA_CONTEXT_WINDOW=8192`) and native structured JSON output.
-- **`hosted`**: Cloud frontier models (e.g., GPT-4o, Claude) via OpenAI-compatible REST endpoints.
-
-### B. Live Infrastructure & Telemetry Adapters
-- **Live Prometheus & Log Adapters**: Scrapes instant and vector range queries from real endpoints while retaining the in-process synthetic cluster toggle (`DATA_SOURCE=live` vs `DATA_SOURCE=simulator`).
-- **Authenticated Webhook Ingestion**: Receives Alertmanager alerts on `POST /api/alerts/webhook` with HMAC shared-secret, Bearer token, Basic Auth, or custom header authentication (`X-Alertmanager-Secret`).
-- **Real Infrastructure Remediation Execution**: Supports `kubernetes` (via `kubectl`), `docker`, and signed `webhook` execution targets alongside in-process simulation.
-- **Compensating Rollback on Verification Failure**: Policy-gated automated rollback triggered when post-remediation live telemetry indicates lingering health degradation.
-- **Pre-Authorized Auto-Execution**: Safe, autonomous playbook execution path with strict 5-tier guardrails (global toggle, explicit whitelist, >=90% diagnostic confidence, 100% SHA-256 evidence provenance, and policy clearance).
-
----
-
-## 4. Multi-Model Benchmark Comparison (Local vs Hosted Baselines)
-
-Comprehensive empirical benchmark across all 4 evaluation partitions:
-- **General Partition**: Core single-fault microservice failures (DB query latency, pool exhaustion, CPU burn, queue lag).
-- **Compositional Partition**: Multi-factor held-out failures (e.g. canary release coupled with unindexed table lock lag).
-- **Payment Domain Partition**: State inconsistency, webhook delivery failure, and ledger settlement mismatches.
+RCAI is evaluated against a 47-scenario benchmark across 4 failure partitions:
+- **General Partition**: Core single-fault microservice failures (DB query latency, connection pool exhaustion, CPU burn, queue lag).
+- **Compositional Partition**: Multi-factor held-out failures (e.g. canary release coupled with unindexed table lock contention).
+- **Payment Domain Partition**: State inconsistency, webhook delivery failures, and settlement mismatches.
 - **Adversarial Partition**: Misleading distracter logs, conflicting timestamps, and phantom alarms.
 
-### Benchmark Matrix
+#### Multi-Model Comparison (15-Scenario Core Suite)
 
 | Model / System | Scenario Coverage | Diagnosis Accuracy | General | Compositional | Payment | Adversarial | Timeout Rate | Avg Latency / Inv |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Static Rules Baseline** | 15 / 15 evaluated | **40.0%** (6/15) | 60.0% | 25.0% | 66.7% | 0.0% | 0.0% (0/15) | < 1 ms |
 | **Hosted LLM (GPT-4o)** | 15 / 15 evaluated | **86.7%** (13/15) | 100.0% | 75.0% | 100.0% | 66.7% | 0.0% (0/15) | ~850 ms |
 | **Ollama: `phi4-mini` (3.8B)** | 15 / 15 evaluated | **60.0%** (9/15) | 60.0% (3/5) | 50.0% (2/4) | 100.0% (3/3) | 33.3% (1/3) | **0.0%** (0/15) | **~14.2 s** |
-| **Ollama: `qwen3:4b` (4B)** | 4 / 15 partition sample | **25.0%** (1/4 completed correct) | 100.0% (1/1) | 0.0% (0/1) | 0.0% (0/1) | 0.0% (0/1) | **50.0%** (2/4 timed out on attempt 1) | **~254.0 s** |
+| **Ollama: `qwen3:4b` (4B)** | 4 / 15 sample | **25.0%** (1/4 completed) | 100.0% (1/1) | 0.0% (0/1) | 0.0% (0/1) | 0.0% (0/1) | **50.0%** (2/4 timed out) | **~254.0 s** |
 
-### Key Takeaways:
-1. **`phi4-mini` (3.8B) is the Recommended Local SRE Model**: Adheres directly to structured JSON output schemas with a 0% unrecoverable failure rate, executing all 15 scenarios to completion at ~14.2s average latency.
-2. **`qwen3:4b` Reasoning Token Overhead**: Emits 1,300–2,200 internal thinking tokens before producing output, causing 2 of 4 partition test scenarios to exceed 180s HTTP client timeouts.
-3. **Partition Degradation Limits**:
-   - **Compositional (50% on Phi-4 vs 75% on GPT-4o)**: Local 3B-4B models tend to fixate on surface-level deployment events rather than isolating underlying database query bottlenecks.
-   - **Adversarial (33.3% on Phi-4 vs 66.7% on GPT-4o)**: Spurious distracter warnings easily mislead single-shot local models without iterative multi-evidence Bayesian filtering.
+- **Zero Unrecoverable Failures on `phi4-mini`**: For local deployments, `phi4-mini` (3.8B) reliably adheres to structured JSON schemas with zero retries or timeouts, solving 60% of scenarios without cloud access.
+- **Reasoning Token Trade-off**: Thinking models like `qwen3:4b` generate 1,300–2,200 reasoning tokens per prompt, leading to timeouts on laptop GPU hardware under high investigation tool depth.
+- **Test Suite Verification**: 160 unit and integration tests passing in CI (100% pass rate).
 
 ---
 
-## 5. Formal System Architecture
+## Configuration Reference
 
-```mermaid
-flowchart LR
-    A[Incident Sources / Alertmanager] --> B[Incident Ingestion & Detector]
-    B --> C[Hypothesis Engine]
-    C --> D[Active Investigation Router]
-    D --> E[Diagnostic Evidence Tools]
-    E --> F[Telemetry Normalizer]
-    F --> G[Root Cause Verifier]
-    G --> H[Deterministic Policy Engine]
-    H --> I[Bounded Remediation Executor]
-    I --> J[Live Outcome Verifier]
-    J --> K[Investigation Memory & Audit Store]
-```
+All settings can be configured via environment variables or a local `.env` file:
 
-### Layer Breakdown:
-1. **Multi-Modal Observability (`observability/`)**: Standardized collectors for metrics (Prometheus), structured logs (Loki), distributed trace spans, deployment manifests, and financial state records.
-2. **Telemetry Normalizer (`observability/normalizer.py`)**: Converts raw payloads into immutable `NormalizedEvidence` signatures with SHA-256 cryptographic provenance.
-3. **Hypothesis Engine (`agent/hypothesis/`)**: Formulates competing candidates across `DATABASE`, `DEPLOYMENT`, `DEPENDENCY`, `RESOURCE`, and `QUEUE` families.
-4. **Active Investigator Loop (`agent/investigator/loop.py`)**: Evaluates diagnostic entropy and selects tools sequentially to maximize information gain per cost unit.
-5. **Deterministic Policy Gate (`agent/policies/engine.py`)**: Enforces zero arbitrary code execution, permission tiers, service authorization, and idempotency keys.
-6. **Bounded Remediation Engine (`tools/remediation/`)**: Executes safe mitigation primitives (`rollback_version`, `restart_workers`, `scale_workers`, `optimize_db_index`, `circuit_breaker`) via Simulated, Kubernetes, Docker, or Webhook executors.
-7. **Outcome Verifier (`agent/verification/outcome.py`)**: Scrapes live telemetry post-remediation to confirm system recovery or trigger automated rollback.
+### Discovery & Environment
+| Variable | Default | Description |
+|---|---|---|
+| `RCAI_DISCOVERY_MODE` | `none` (`docker` in snippet) | Auto-discovery mode: `docker` inspects host containers via Docker socket; `none` uses simulator topology. |
+| `DOCKER_SOCKET_PATH` | `/var/run/docker.sock` | Path to Docker Unix domain socket (mounted read-only `:ro`). |
+| `PORT` | `8000` | HTTP port for the RCAI investigation console and REST API. |
 
----
+### LLM Backend Selection
+| Variable | Default | Description |
+|---|---|---|
+| `LLM_BACKEND` | `rule_based` | Inference backend: `rule_based` (zero external dependencies), `ollama` (local models), or `hosted` (OpenAI-compatible). |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Endpoint for local Ollama daemon. |
+| `OLLAMA_MODEL` | `phi4-mini` | Ollama model identifier (recommended: `phi4-mini` for speed and strict JSON schema adherence). |
+| `OLLAMA_CONTEXT_WINDOW` | `8192` | Maximum token context limit for local Ollama inference. |
+| `HOSTED_LLM_API_KEY` | `None` | API key for cloud frontier models (OpenAI, Anthropic, etc.). |
+| `HOSTED_LLM_MODEL` | `gpt-4o` | Model name for hosted inference. |
 
-## 6. Safety Policy Engine & Deterministic Guardrails
-
-| Safety Tier | Permissions | Allowed Operations | Guardrails |
-|---|---|---|---|
-| **READ_ONLY** | Unrestricted | `query_metrics`, `query_logs`, `query_traces`, `inspect_deployments`, `query_db_metrics`, `inspect_health`, `get_payment_state` | Read-only access; zero state mutation |
-| **RECOMMEND** | Advisory | Diagnostic reports, mitigation proposals | Operator review required |
-| **CONTROLLED_EXECUTION** | Bounded Mutation | `rollback_version`, `restart_workers`, `scale_workers`, `optimize_db_index`, `circuit_breaker` | Whitelist-only, idempotency token, active incident required |
-| **FORBIDDEN** | Blocked | Arbitrary bash, `rm`, `subprocess`, raw unvalidated SQL | Structurally blocked by parser and policy |
-
----
-
-## 7. Quick Start & Execution Guide
-
-### Prerequisites
-- Python 3.10+
-- Modern Web Browser (Chrome / Firefox / Edge)
-- (Optional for local LLM): Ollama with `phi4-mini` or `qwen3:4b` (`ollama serve`)
-
-### Installation & Configuration
-```bash
-# Clone the repository
-git clone https://github.com/Vaibhav20k/RCAI.git
-cd RCAI
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Copy example environment configuration
-cp .env.example .env
-```
-
-### Execution Commands
-```bash
-# 1. Run full test suite (150+ tests)
-python -m pytest tests/
-
-# 2. Run the frozen comprehensive scientific benchmark
-python scripts/run_benchmarks.py
-
-# 3. Run interactive end-to-end incident investigation demo
-python scripts/demo.py
-
-# 4. Launch the live investigation backend & console
-python -m uvicorn backend.api.app:app --host 127.0.0.1 --port 8000
-# Open frontend/index.html in your browser.
-```
-
----
-
-## 8. Repository Structure
-
-```
-RCAI/
-|-- agent/               -> Investigation loop, hypothesis engine, routing, verifier, safety policies, LLM backends
-|-- backend/             -> FastAPI REST API, live SSE streaming, Alertmanager ingestion, escalation dispatchers
-|-- benchmark/           -> 47 scenario definitions, taxonomy, evaluators, baselines, manifest
-|-- frontend/            -> Phosphor Amber instrument investigation console UI
-|-- observability/       -> Multi-modal telemetry collectors, normalization, provenance hashing
-|-- simulator/           -> Microservice cluster, payment domain models, fault injectors, traffic generator
-|-- tools/               -> 16 diagnostic tools and live infrastructure remediation executors (k8s/docker/webhook)
-|-- scripts/             -> Benchmark runner, live demo, external validation CLI scripts
-|-- docs/                -> Technical guides (CONCEPTS.md, VISION.md, SUBMISSION.md, evaluation.md)
-+-- tests/               -> Comprehensive test suites across unit, integration, and security contracts
-```
+### Telemetry & Infrastructure Execution
+| Variable | Default | Description |
+|---|---|---|
+| `DATA_SOURCE` | `simulator` (`live` when mounted) | Telemetry origin: `simulator` (in-process microservice cluster) or `live` (Prometheus/Loki). |
+| `PROMETHEUS_URL` | `http://localhost:9090` | Prometheus HTTP endpoint for metrics scraping and queries. |
+| `REMEDIATION_EXECUTION_TARGET` | `simulated` | Target for applying playbooks: `simulated`, `docker`, `kubernetes`, or `webhook`. |
+| `AUTO_EXECUTE_ENABLED` | `false` | Enable pre-authorized auto-execution for low-risk playbooks without human confirmation. |
+| `AUTO_EXECUTE_CONFIDENCE_THRESHOLD` | `0.90` | Minimum diagnostic confidence required for automated execution. |
+| `AUTO_EXECUTE_REQUIRE_PROVENANCE` | `true` | Requires 100% of diagnostic evidence to possess SHA-256 provenance hashes. |
