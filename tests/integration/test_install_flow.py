@@ -39,8 +39,15 @@ def test_docker_compose_snippet_syntax_and_security_guarantees():
     env_str = " ".join(str(e) for e in env)
     assert "RCAI_DISCOVERY_MODE=docker" in env_str
     assert "DOCKER_SOCKET_PATH=/var/run/docker.sock" in env_str
+    assert "LLM_BACKEND=${LLM_BACKEND:-rule_based}" in env_str, "Snippet must default to rule_based LLM for zero-config operation"
+
+    # Check image and build context
+    build_cfg = rcai_svc.get("build", {})
+    assert "Dockerfile" in build_cfg.get("dockerfile", "")
+    assert "${RCAI_DIR:-.}" in build_cfg.get("context", "")
 
     # Check mandatory read-only socket mount
+
     volumes = rcai_svc.get("volumes", [])
     socket_mount = next((v for v in volumes if "/var/run/docker.sock" in str(v)), None)
     assert socket_mount is not None, "Docker socket must be mounted into RCAI container"

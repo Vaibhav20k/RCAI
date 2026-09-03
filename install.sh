@@ -127,7 +127,13 @@ if ! docker info &>/dev/null; then
   exit 0
 fi
 
+# Ensure RCAI_DIR, RCAI_IMAGE, and zero-config LLM_BACKEND are propagated
+export RCAI_DIR="${SCRIPT_DIR}"
+export RCAI_IMAGE="${RCAI_IMAGE:-rcai-agent:latest}"
+export LLM_BACKEND="${LLM_BACKEND:-rule_based}"
+
 ${COMPOSE_CMD} -f "$COMPOSE_FILE" -f "${SCRIPT_DIR}/docker-compose.snippet.yml" up -d
+
 
 echo ""
 echo "===================================================================="

@@ -22,9 +22,11 @@ version: "3.8"
 
 services:
   rcai:
+    # Image name (defaults to local tag 'rcai-agent:latest' or published registry image)
     image: ${RCAI_IMAGE:-rcai-agent:latest}
     build:
-      context: .
+      # Defaults to current directory or RCAI clone directory when invoked externally
+      context: ${RCAI_DIR:-.}
       dockerfile: Dockerfile
     container_name: rcai-engine
     restart: unless-stopped
@@ -34,9 +36,11 @@ services:
       # Enable dynamic Docker daemon auto-discovery
       - RCAI_DISCOVERY_MODE=docker
       - DOCKER_SOCKET_PATH=/var/run/docker.sock
+      # Zero-config default: rule_based requires NO API keys and NO local Ollama daemon
       - LLM_BACKEND=${LLM_BACKEND:-rule_based}
       - PROMETHEUS_URL=${PROMETHEUS_URL:-http://rcai-prometheus:9090}
       - PORT=8000
+
     volumes:
       # ========================================================================
       # MANDATORY READ-ONLY DOCKER SOCKET MOUNT (:ro)
