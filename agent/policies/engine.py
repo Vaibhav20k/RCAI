@@ -10,20 +10,26 @@ from agent.policies.models import (
 )
 from backend.incidents.models import Incident, IncidentStatus
 from backend.config import get_settings
+from discovery.registry import get_current_topology_services, DEFAULT_SIMULATOR_NODES
 
-VALID_TOPOLOGY_SERVICES = {
-    "api-gateway",
-    "order-service",
-    "payment-service",
-    "dependency-service",
-    "worker-service"
-}
+# Fallback reference set for backwards-compatibility
+VALID_TOPOLOGY_SERVICES = set(DEFAULT_SIMULATOR_NODES.keys())
 
 class PolicyEngine:
-    def __init__(self, auto_approve_low_risk: bool = True):
+    def __init__(
+        self,
+        auto_approve_low_risk: bool = True,
+        allowed_services: Optional[Set[str]] = None
+    ):
         self.auto_approve_low_risk = auto_approve_low_risk
+        self.allowed_services = allowed_services
         self._executed_remediations: Dict[str, Set[str]] = {} # incident_id -> set of action_keys
         self._approval_tokens: Dict[str, RemediationProposal] = {}
+
+    def get_valid_services(self) -> Set[str]:
+        if self.allowed_services is not None:
+            return self.allowed_services
+        return get_current_topology_services()
 
     def evaluate_proposal(
         self,
@@ -38,13 +44,15 @@ class PolicyEngine:
                 rejection_reason="Direct shell execution and arbitrary commands are strictly forbidden"
             )
 
-        # 2. Validate target service
-        if proposal.target_service not in VALID_TOPOLOGY_SERVICES:
+        # 2. Validate target service against dynamic topology
+        valid_services = self.get_valid_services()
+        if proposal.target_service not in valid_services:
             return PolicyCheckResult(
                 is_allowed=False,
                 policy_code="DENIED_UNKNOWN_SERVICE",
                 rejection_reason=f"Target service {proposal.target_service} not recognized in microservice topology"
             )
+
 
         # 3. Check incident active status if incident object is provided
         if incident and incident.status in [IncidentStatus.RESOLVED, IncidentStatus.ESCALATED]:
@@ -138,13 +146,15 @@ class PolicyEngine:
         self,
         proposal: RemediationProposal
     ) -> PolicyCheckResult:
-        # 1. Validate target service topology
-        if proposal.target_service not in VALID_TOPOLOGY_SERVICES:
+        # 1. Validate target service topology against dynamic topology
+        valid_services = self.get_valid_services()
+        if proposal.target_service not in valid_services:
             return PolicyCheckResult(
                 is_allowed=False,
                 policy_code="DENIED_UNKNOWN_SERVICE",
                 rejection_reason=f"Reversal target service '{proposal.target_service}' not recognized in microservice topology"
             )
+
 
         # 2. Idempotency / duplicate reversal protection
         reversal_key = f"reversal:{proposal.action_type}:{proposal.target_service}"

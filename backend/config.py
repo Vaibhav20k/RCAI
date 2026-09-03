@@ -99,8 +99,15 @@ class Settings(BaseModel):
         ]
     )
 
+    # Stage A: Drop-In Auto-Discovery Mode ("none" or "docker")
+    RCAI_DISCOVERY_MODE: str = Field(default_factory=lambda: os.getenv("RCAI_DISCOVERY_MODE", "none").lower())
+    DOCKER_SOCKET_PATH: str = Field(default_factory=lambda: os.getenv("DOCKER_SOCKET_PATH", "/var/run/docker.sock"))
+
     def is_live_mode(self) -> bool:
         return self.DATA_SOURCE == "live"
+
+    def is_discovery_enabled(self) -> bool:
+        return self.RCAI_DISCOVERY_MODE == "docker"
 
 _global_settings: Optional[Settings] = None
 

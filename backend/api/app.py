@@ -17,7 +17,9 @@ from agent.verification.engine import RootCauseVerifier
 from agent.verification.models import RootCauseDecision, IncidentReport
 from agent.policies.models import RemediationProposal, RemediationActionType, ExecutionAuthorizationMode
 from agent.policies.engine import PolicyEngine, VALID_TOPOLOGY_SERVICES
+from discovery.registry import get_current_topology, get_current_topology_services
 from tools.remediation.factory import get_remediation_executor
+
 from agent.verification.outcome import RemediationOutcomeVerifier, get_outcome_verifier
 from benchmark.evaluators.evaluator import BenchmarkRunner
 from benchmark.evaluators.ablation import AblationExperimentRunner
@@ -228,8 +230,9 @@ def execute_remediation(req: RemediationRequest):
     if not inc:
         raise HTTPException(status_code=404, detail="Incident not found")
 
-    # Early rejection for UNKNOWN / unverified targets
-    if not req.target_service or req.target_service == "UNKNOWN" or req.target_service not in VALID_TOPOLOGY_SERVICES:
+    # Early rejection for UNKNOWN / unverified targets against dynamic topology
+    valid_services = get_current_topology_services()
+    if not req.target_service or req.target_service == "UNKNOWN" or req.target_service not in valid_services:
         inc.status = IncidentStatus.ESCALATED
         return {
             "status": "BLOCKED",
@@ -238,6 +241,7 @@ def execute_remediation(req: RemediationRequest):
             "error": f"Remediation blocked: Target service '{req.target_service}' is UNKNOWN or not in active topology",
             "is_recovered": False
         }
+
 
     proposal = RemediationProposal(
         incident_id=req.incident_id,
@@ -585,29 +589,21 @@ def get_llm_benchmark_summary():
 
 @app.get("/api/topology")
 def get_topology():
-    services = [
-        {"id": "api-gateway", "name": "API Gateway", "type": "gateway", "depends_on": ["order-service", "payment-service"]},
-        {"id": "order-service", "name": "Order Service", "type": "service", "depends_on": ["payment-service", "worker-service", "database"]},
-        {"id": "payment-service", "name": "Payment Service", "type": "service", "depends_on": ["dependency-service", "database"]},
-        {"id": "dependency-service", "name": "Partner Bank API", "type": "dependency", "depends_on": []},
-        {"id": "worker-service", "name": "Worker Queue", "type": "worker", "depends_on": ["queue"]},
-        {"id": "database", "name": "Postgres DB", "type": "infrastructure", "depends_on": []},
-        {"id": "queue", "name": "Redis Stream", "type": "infrastructure", "depends_on": []}
-    ]
+    topo = get_current_topology()
     nodes = []
-    service_map = cluster.get_service_map()
-    for s in services:
-        sid = s["id"]
+    service_map = cluster.get_service_map() if cluster else {}
+    for node in topo.nodes.values():
+        sid = node.service_id
         svc_obj = service_map.get(sid)
         has_fault = False
-        if svc_obj and len(svc_obj.fault_injector.get_active_faults()) > 0:
+        if svc_obj and hasattr(svc_obj, "fault_injector") and len(svc_obj.fault_injector.get_active_faults()) > 0:
             has_fault = True
-        nodes.append({
-            **s,
-            "has_fault": has_fault,
-            "status": "FAULT" if has_fault else "HEALTHY"
-        })
+        node_data = node.to_dict()
+        node_data["has_fault"] = has_fault
+        node_data["status"] = "FAULT" if has_fault else ("DEGRADED" if not node.has_metrics and topo.discovery_mode == "docker" else "HEALTHY")
+        nodes.append(node_data)
     return {"nodes": nodes}
+
 import json
 from fastapi.responses import StreamingResponse
 

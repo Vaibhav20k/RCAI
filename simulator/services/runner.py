@@ -72,3 +72,8 @@ class InProcessCluster:
             "dependency-service": self.dependency_service,
             "worker-service": self.worker_service,
         }
+
+    def get_topology(self):
+        from discovery.registry import get_default_simulator_topology
+        return get_default_simulator_topology()
+

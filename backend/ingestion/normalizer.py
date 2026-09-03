@@ -4,7 +4,7 @@ import datetime
 from typing import Dict, Any, Optional
 from backend.ingestion.models import AlertmanagerAlert
 from backend.incidents.models import Incident, IncidentSeverity, IncidentStatus
-from agent.policies.engine import VALID_TOPOLOGY_SERVICES
+from discovery.registry import get_current_topology_services
 
 class AlertNormalizer:
     @staticmethod
@@ -21,35 +21,42 @@ class AlertNormalizer:
     @classmethod
     def resolve_target_service(cls, alert: AlertmanagerAlert) -> str:
         labels = alert.labels
+        valid_services = get_current_topology_services()
+
         # 1. Direct label checks
         for key in ["service", "app", "job", "component", "microservice", "target_service"]:
             val = labels.get(key, "").strip().lower()
-            if val in VALID_TOPOLOGY_SERVICES:
+            if val in valid_services:
                 return val
 
         # 2. Check alertname or annotations for topology keywords (exact and unhyphenated)
         search_blob = f"{labels.get('alertname', '')} {alert.annotations.get('summary', '')} {alert.annotations.get('description', '')}".lower()
         search_blob_clean = search_blob.replace("-", "").replace("_", "")
 
-        for svc in VALID_TOPOLOGY_SERVICES:
+        for svc in valid_services:
             svc_clean = svc.replace("-", "")
             if svc in search_blob or svc_clean in search_blob_clean:
                 return svc
 
         # Check domain service roots
-        if "order" in search_blob_clean:
+        if "order" in search_blob_clean and "order-service" in valid_services:
             return "order-service"
-        elif "payment" in search_blob_clean or "settlement" in search_blob_clean:
+        elif ("payment" in search_blob_clean or "settlement" in search_blob_clean) and "payment-service" in valid_services:
             return "payment-service"
-        elif "worker" in search_blob_clean or "queue" in search_blob_clean:
+        elif ("worker" in search_blob_clean or "queue" in search_blob_clean) and "worker-service" in valid_services:
             return "worker-service"
-        elif "dependency" in search_blob_clean or "bank" in search_blob_clean:
+        elif ("dependency" in search_blob_clean or "bank" in search_blob_clean) and "dependency-service" in valid_services:
             return "dependency-service"
-        elif "gateway" in search_blob_clean or "ingress" in search_blob_clean:
+        elif ("gateway" in search_blob_clean or "ingress" in search_blob_clean) and "api-gateway" in valid_services:
             return "api-gateway"
 
-        # Fallback to api-gateway if unassigned
-        return "api-gateway"
+        # Fallback to api-gateway or first recognized service
+        if "api-gateway" in valid_services:
+            return "api-gateway"
+        elif valid_services:
+            return sorted(list(valid_services))[0]
+        return "unknown"
+
 
     @classmethod
     def resolve_severity(cls, alert: AlertmanagerAlert) -> IncidentSeverity:
