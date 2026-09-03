@@ -604,7 +604,17 @@ def get_topology():
         nodes.append(node_data)
     return {"nodes": nodes}
 
+@app.get("/api/topology/scrape-config")
+def get_topology_scrape_config():
+    """Returns the auto-generated Prometheus YAML scrape configuration for discovered nodes."""
+    topo = get_current_topology()
+    return {
+        "discovery_mode": topo.discovery_mode,
+        "scrape_config_yaml": topo.generate_prometheus_scrape_config()
+    }
+
 import json
+
 from fastapi.responses import StreamingResponse
 
 @app.get("/api/investigate/stream/{incident_id}")

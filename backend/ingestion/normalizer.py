@@ -33,10 +33,12 @@ class AlertNormalizer:
         search_blob = f"{labels.get('alertname', '')} {alert.annotations.get('summary', '')} {alert.annotations.get('description', '')}".lower()
         search_blob_clean = search_blob.replace("-", "").replace("_", "")
 
-        for svc in valid_services:
+        # Prioritize longer/more specific service names first (e.g. 'worker-service' before 'queue')
+        for svc in sorted(valid_services, key=lambda s: -len(s)):
             svc_clean = svc.replace("-", "")
             if svc in search_blob or svc_clean in search_blob_clean:
                 return svc
+
 
         # Check domain service roots
         if "order" in search_blob_clean and "order-service" in valid_services:

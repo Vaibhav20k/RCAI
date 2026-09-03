@@ -25,8 +25,18 @@ from backend.ingestion.normalizer import AlertNormalizer
 from backend.ingestion.models import AlertmanagerAlert
 from backend.api.app import app
 from starlette.testclient import TestClient
+from backend.config import reset_settings
+
+@pytest.fixture(autouse=True)
+def clean_topology():
+    reset_active_topology()
+    reset_settings()
+    yield
+    reset_active_topology()
+    reset_settings()
 
 # ---------------------------------------------------------------------------
+
 # Mock Docker API Responses
 # ---------------------------------------------------------------------------
 

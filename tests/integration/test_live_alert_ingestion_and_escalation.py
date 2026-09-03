@@ -14,9 +14,11 @@ from agent.investigator.state import InvestigationState
 from agent.hypothesis.models import HypothesisSet, Hypothesis, HypothesisCategory
 from agent.verification.models import RootCauseDecision, IncidentReport
 from backend.config import reset_settings
+from discovery.registry import reset_active_topology
 
 @pytest.fixture(autouse=True)
 def clean_runtime():
+    reset_active_topology()
     reset_settings()
     incidents_db.clear()
     investigations_db.clear()
@@ -28,8 +30,10 @@ def clean_runtime():
     reports_db.clear()
     global_escalation_dispatcher.active_escalations.clear()
     reset_settings()
+    reset_active_topology()
 
 def test_alertmanager_payload_normalization():
+
     alert = AlertmanagerAlert(
         status="firing",
         labels={

@@ -42,3 +42,5 @@ out/
 data/
 /logs/
 *.log
+.rcai/
+
