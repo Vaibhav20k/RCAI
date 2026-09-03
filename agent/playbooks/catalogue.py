@@ -3,8 +3,10 @@ from typing import Dict, Any, List, Optional, Tuple
 from agent.playbooks.models import PlaybookDefinition
 from agent.policies.models import RemediationActionType, RemediationRiskLevel
 from agent.hypothesis.models import HypothesisCategory
+from discovery.registry import get_current_topology_services, is_service_db_related
 
 class PlaybookCatalogue:
+
     def __init__(self):
         self._catalogue: Dict[str, PlaybookDefinition] = {}
         self._register_default_playbooks()
@@ -163,6 +165,20 @@ class PlaybookCatalogue:
     def list_playbooks(self) -> List[PlaybookDefinition]:
         return list(self._catalogue.values())
 
+    def get_candidate_playbooks_for_service(self, target_service: str) -> List[PlaybookDefinition]:
+        """
+        Returns playbooks applicable to the specific target service based on
+        its discovered capabilities (e.g. database-related vs generic service).
+        """
+        is_db = is_service_db_related(target_service)
+        candidates = []
+        for p in self._catalogue.values():
+            if p.name == "optimize_db_index" and not is_db:
+                # Explicitly exclude database index optimization for non-DB services
+                continue
+            candidates.append(p)
+        return candidates
+
     def validate_playbook_selection(
         self,
         action: str,
@@ -176,6 +192,15 @@ class PlaybookCatalogue:
         if not target or target.strip() == "":
             return False, "Target service must be specified for playbook remediation"
 
+        # Validate target service against active topology
+        valid_services = get_current_topology_services()
+        if target not in valid_services:
+            return False, f"Target service '{target}' is not recognized in active microservice topology"
+
+        # Explicit Safety Gate: optimize_db_index must only target services with a DB component
+        if action == "optimize_db_index" and not is_service_db_related(target):
+            return False, f"Playbook 'optimize_db_index' is not applicable to service '{target}' because it has no database component or signal"
+
         # Check required parameters (service is provided as target)
         for param in playbook.required_parameters:
             if param == "service":
@@ -185,11 +210,13 @@ class PlaybookCatalogue:
 
         return True, None
 
-    def get_catalogue_prompt_description(self) -> str:
+    def get_catalogue_prompt_description(self, target_service: Optional[str] = None) -> str:
         lines = ["Approved Remediation Playbook Catalogue (Select ONLY from this list):"]
-        for p in self._catalogue.values():
+        playbooks = self.get_candidate_playbooks_for_service(target_service) if target_service else list(self._catalogue.values())
+        for p in playbooks:
             req = ", ".join(p.required_parameters)
             lines.append(f"- {p.name}: {p.description} [Required params: {req}] [Risk: {p.risk_level.value}]")
         return "\n".join(lines)
+
 
 global_playbook_catalogue = PlaybookCatalogue()

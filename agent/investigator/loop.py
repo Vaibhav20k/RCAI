@@ -12,8 +12,10 @@ from tools.base import ToolExecutionStatus
 from observability.models import NormalizedEvidence, EvidenceSource, EvidenceType
 
 from agent.llm.interface import BaseLLMBackend
+from discovery.registry import is_service_db_related, is_service_queue_related
 
 class ActiveInvestigator:
+
     def __init__(
         self,
         tool_registry: Optional[ToolRegistry] = None,
@@ -170,7 +172,7 @@ class ActiveInvestigator:
                 ev.data.get("has_db_anomaly", False) or "inconsisten" in str(ev.data).lower() or "mismatch" in str(ev.data).lower() or "drift" in str(ev.data).lower() or "duplicate" in str(ev.data).lower()
                 for ev in evidence_list
             )
-            if has_db_anomaly and target_service in ["order-service", "payment-service"]:
+            if has_db_anomaly and (target_service in ["order-service", "payment-service"] or is_service_db_related(target_service)):
                 h_db.add_supporting_evidence(evidence_list[0].evidence_id, weight=0.60)
             else:
                 h_db.add_contradicting_evidence(evidence_list[0].evidence_id, weight=0.30)
@@ -203,14 +205,14 @@ class ActiveInvestigator:
                     is_unhealthy = True
                     break
 
-            if is_unhealthy or target_service in ["dependency-service", "bank"]:
+            if is_unhealthy or target_service in ["dependency-service", "bank"] or "dep" in target_service.lower():
                 h_dep.add_supporting_evidence(evidence_list[0].evidence_id, weight=0.60)
             else:
                 h_dep.reject(evidence_list[0].evidence_id)
 
         # 4. Queue Tool Evidence
         elif tool_name in ["inspect_service_health", "get_webhook_delivery", "get_event_queue_state"] and h_queue:
-            is_worker_target = ("worker" in target_service or "queue" in target_service)
+            is_worker_target = ("worker" in target_service.lower() or "queue" in target_service.lower() or is_service_queue_related(target_service))
             has_queue_anomaly = False
             for ev in evidence_list:
                 status_text = str(ev.data).lower()
@@ -234,9 +236,10 @@ class ActiveInvestigator:
                     has_res_anomaly = True
                     break
 
-            if has_res_anomaly and target_service in ["api-gateway", "recommendation-service"]:
+            if has_res_anomaly:
                 if h_res:
                     h_res.add_supporting_evidence(evidence_list[0].evidence_id, weight=0.60)
             else:
                 if h_res:
                     h_res.add_contradicting_evidence(evidence_list[0].evidence_id, weight=0.20)
+

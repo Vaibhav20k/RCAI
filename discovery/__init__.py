@@ -7,6 +7,8 @@ from discovery.registry import (
     get_current_topology_services,
     set_active_topology,
     reset_active_topology,
+    is_service_db_related,
+    is_service_queue_related,
     DEFAULT_SIMULATOR_NODES
 )
 
@@ -19,5 +21,8 @@ __all__ = [
     "get_current_topology_services",
     "set_active_topology",
     "reset_active_topology",
+    "is_service_db_related",
+    "is_service_queue_related",
     "DEFAULT_SIMULATOR_NODES"
 ]
+

@@ -27,21 +27,30 @@ class LiveRemediationOutcomeVerifier:
 
     def check_service_http_health(self, service: str) -> bool:
         settings = get_settings()
-        port_map = {
-            "api-gateway": settings.API_GATEWAY_PORT,
-            "order-service": settings.ORDER_SERVICE_PORT,
-            "payment-service": settings.PAYMENT_SERVICE_PORT,
-            "dependency-service": 8003,
-            "worker-service": 8004
-        }
-        port = port_map.get(service, 8000)
-        url = f"http://localhost:{port}/health"
+        from discovery.registry import get_current_topology
+        topo = get_current_topology()
+        node = topo.get_node(service)
+        if node and node.ports:
+            port = node.ports[0]
+            host = node.ip_address or "localhost"
+        else:
+            port_map = {
+                "api-gateway": settings.API_GATEWAY_PORT,
+                "order-service": settings.ORDER_SERVICE_PORT,
+                "payment-service": settings.PAYMENT_SERVICE_PORT,
+                "dependency-service": 8003,
+                "worker-service": 8004
+            }
+            port = port_map.get(service, 8000)
+            host = "localhost"
+        url = f"http://{host}:{port}/health"
         try:
             with httpx.Client(timeout=3.0) as client:
                 resp = client.get(url)
                 return resp.status_code == 200
         except Exception:
             return False
+
 
     def query_live_metrics_snapshot(self, service: str) -> Dict[str, Any]:
         # 1. Query error rate from Prometheus over 2m window

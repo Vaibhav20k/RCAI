@@ -18,12 +18,27 @@ class RuleBasedLLMBackend(BaseLLMBackend):
         schema_title = str(json_schema.get("title", "") if json_schema else "").lower()
         schema_props = set(json_schema.get("properties", {}).keys() if json_schema else [])
 
-        # Extract target service
-        target_service = "order-service"
-        for svc in ["api-gateway", "order-service", "payment-service", "dependency-service", "worker-service"]:
-            if f"target service: {svc}" in prompt_lower or f"service: {svc}" in prompt_lower or f"affected service: {svc}" in prompt_lower or svc in prompt_lower:
-                target_service = svc
-                break
+        # Extract target service dynamically from active topology or prompt
+        import re
+        from discovery.registry import get_current_topology_services
+        active_services = list(get_current_topology_services())
+
+        target_service = None
+        match = re.search(r"(?:affected target service|affected service|target service|service):\s*([a-zA-Z0-9_\-]+)", prompt, re.IGNORECASE)
+        if match:
+            extracted = match.group(1).strip()
+            if extracted in active_services or not active_services:
+                target_service = extracted
+
+        if not target_service:
+            for svc in active_services:
+                if svc.lower() in prompt_lower:
+                    target_service = svc
+                    break
+
+        if not target_service:
+            target_service = active_services[0] if active_services else "order-service"
+
 
         # 1. Root Cause Diagnosis Schema matching
         if "rootcause" in schema_title or "root_cause_category" in schema_props or "root_cause_service" in schema_props:

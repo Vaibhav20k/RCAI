@@ -7,6 +7,7 @@ from agent.playbooks.catalogue import PlaybookCatalogue, global_playbook_catalog
 from agent.llm.models import PlaybookSelectionSchema
 from agent.llm.interface import BaseLLMBackend, llm_infer
 from backend.config import get_settings
+from discovery.registry import get_current_topology_services
 
 class PlaybookSelector:
     def __init__(self, catalogue: Optional[PlaybookCatalogue] = None):
@@ -23,8 +24,14 @@ class PlaybookSelector:
         if decision.is_unknown or decision.root_cause_service == "UNKNOWN":
             return None, "Root cause is UNKNOWN or unproven. Automated remediation blocked; escalated to human SRE."
 
-        catalogue_prompt = self.catalogue.get_catalogue_prompt_description()
+        # Validate target service against active topology
+        valid_services = get_current_topology_services()
+        if decision.root_cause_service not in valid_services:
+            return None, f"Target service '{decision.root_cause_service}' is not recognized in active microservice topology. Automated remediation blocked; escalated to human SRE."
+
+        catalogue_prompt = self.catalogue.get_catalogue_prompt_description(target_service=decision.root_cause_service)
         evidence_str = ""
+
         if evidence_trail:
             evidence_str = "\nEvidence Audit Trail:\n" + "\n".join([f"- [{e.get('source')}] {e.get('summary')}" for e in evidence_trail[:5]])
 

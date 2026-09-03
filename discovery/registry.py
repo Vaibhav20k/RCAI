@@ -125,3 +125,46 @@ def reset_active_topology() -> None:
     """Resets the cached active topology to default."""
     global _active_topology
     _active_topology = None
+
+def is_service_db_related(service_name: str) -> bool:
+    """
+    Determines whether a service has database or datastore capabilities/dependencies
+    in the active topology. Used to gate optimize_db_index playbook proposal.
+    """
+    if not service_name:
+        return False
+    topo = get_current_topology()
+    node = topo.get_node(service_name)
+    if node:
+        if node.is_db_related:
+            return True
+        if any("database" in dep or "db" in dep for dep in node.depends_on):
+            return True
+
+    # Simulator defaults: order-service and payment-service interact directly with PostgreSQL
+    if service_name in ["database", "postgres", "order-service", "payment-service"]:
+        return True
+
+    return False
+
+def is_service_queue_related(service_name: str) -> bool:
+    """
+    Determines whether a service is asynchronous worker or message queue related
+    in the active topology. Used for queue backlog hypothesis seeding.
+    """
+    if not service_name:
+        return False
+    topo = get_current_topology()
+    node = topo.get_node(service_name)
+    if node:
+        if node.service_type == "worker":
+            return True
+        if any("queue" in dep or "stream" in dep for dep in node.depends_on):
+            return True
+
+    # Simulator defaults: worker-service and order-service interact with Redis stream
+    if service_name in ["worker-service", "queue", "order-service"]:
+        return True
+
+    return False
+
