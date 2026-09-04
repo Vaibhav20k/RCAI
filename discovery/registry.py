@@ -94,25 +94,50 @@ def load_compose_topology(compose_path: Path) -> DiscoveredTopology:
     """
     Parses a Compose YAML manifest and builds a DiscoveredTopology.
     Enables drop-in connection to any external project with a docker-compose.yml.
+    Probes real HTTP sockets on mapped ports to determine LIVE vs SIMULATED vs UNREACHABLE.
     """
     from scripts.inspect_compose import analyze_compose
+    from observability.live_http.collector import global_live_http_collector
+    settings = get_settings()
+
     analysis = analyze_compose(compose_path)
     nodes = {}
     for detail in analysis.get("service_details", []):
         sid = detail["service"]
         svc_type = "database" if detail["is_db_related"] else ("gateway" if any(k in sid for k in ["front", "web", "ui"]) else "service")
         ports = detail.get("ports", [])
-        m_port = ports[0] if ports else None
+        
+        # Probe candidate ports over real HTTP
+        probe = global_live_http_collector.probe_service_liveness(sid, ports)
+        if probe.is_live:
+            node_mode = "LIVE"
+            has_metrics = probe.has_metrics or detail.get("has_metrics", False)
+            metrics_port = probe.metrics_port or (ports[0] if ports else None)
+            status = "HEALTHY"
+        else:
+            if settings.DATA_SOURCE == "live":
+                node_mode = "UNREACHABLE"
+                status = "UNREACHABLE"
+                has_metrics = False
+                metrics_port = None
+            else:
+                node_mode = "SIMULATED"
+                status = "HEALTHY"
+                has_metrics = detail.get("has_metrics", False)
+                metrics_port = ports[0] if ports else None
+
         nodes[sid] = TopologyNode(
             service_id=sid,
             name=sid.replace("-", " ").title(),
             service_type=svc_type,
             ports=ports,
-            metrics_port=m_port,
+            metrics_port=metrics_port,
             metrics_path="/metrics",
-            has_metrics=detail.get("has_metrics", False),
+            has_metrics=has_metrics,
             is_db_related=detail.get("is_db_related", False),
-            depends_on=[]
+            depends_on=[],
+            mode=node_mode,
+            status=status
         )
     topo = DiscoveredTopology(
         nodes=nodes,
@@ -126,7 +151,7 @@ def get_current_topology() -> DiscoveredTopology:
     """
     Returns the active system topology according to the configured RCAI_DISCOVERY_MODE.
     - 'compose' / RCAI_COMPOSE_FILE: Parses the target Compose manifest.
-    - 'docker': Dynamically queries Docker daemon if no cached topology exists.
+    - 'docker': Dynamically queries Docker daemon if no cached topology exists. Raises explicit error if unavailable.
     - 'none' (default): Returns the simulator / baseline 5-service topology.
     """
     global _active_topology
@@ -139,10 +164,15 @@ def get_current_topology() -> DiscoveredTopology:
 
     if settings.RCAI_DISCOVERY_MODE == "docker":
         adapter = DockerDiscoveryAdapter()
-        discovered = adapter.discover()
-        if discovered.nodes:
-            _active_topology = discovered
-            return _active_topology
+        try:
+            discovered = adapter.discover()
+            if discovered.nodes:
+                _active_topology = discovered
+                return _active_topology
+            else:
+                raise RuntimeError("Docker daemon active but no containers matching project were found.")
+        except Exception as exc:
+            raise RuntimeError(f"RCAI_DISCOVERY_MODE is set to 'docker' but Docker discovery failed: {exc}")
 
     return get_default_simulator_topology()
 

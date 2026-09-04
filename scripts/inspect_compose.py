@@ -84,16 +84,31 @@ def extract_service_ports(service_cfg: Dict[str, Any]) -> List[int]:
             elif isinstance(p, str):
                 parts = p.split(":")
                 try:
-                    # If format is "host:container" or "ip:host:container", grab container or host port
-                    port_val = int(parts[-1].split("/")[0])
-                    ports.append(port_val)
+                    # If format is "host:container" or "ip:host:container"
+                    if len(parts) >= 2:
+                        host_port = int(parts[-2].split("/")[-1])
+                        container_port = int(parts[-1].split("/")[0])
+                        ports.extend([host_port, container_port])
+                    else:
+                        port_val = int(parts[0].split("/")[0])
+                        ports.append(port_val)
                 except ValueError:
                     pass
             elif isinstance(p, dict):
+                published = p.get("published")
+                if published and isinstance(published, int):
+                    ports.append(published)
                 target = p.get("target")
                 if target and isinstance(target, int):
                     ports.append(target)
-    return sorted(list(set(ports)))
+    # Deduplicate while preserving order (host ports first)
+    seen = set()
+    result = []
+    for p in ports:
+        if p not in seen:
+            seen.add(p)
+            result.append(p)
+    return result
 
 def analyze_compose(compose_path: Path) -> Dict[str, Any]:
     """Analyzes a compose file and returns discovered topology details."""

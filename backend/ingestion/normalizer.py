@@ -98,6 +98,12 @@ class AlertNormalizer:
         inc_id = f"inc_alert_{fp[:8]}"
         sc_id = scenario_id or f"live_alert_{service}_{int(starts_at)}"
 
+        from discovery.registry import get_current_topology
+        topo = get_current_topology()
+        node = topo.nodes.get(service)
+        target_mode = node.mode if node else "SIMULATED"
+        data_source = "live" if target_mode == "LIVE" else "simulated"
+
         return Incident(
             incident_id=inc_id,
             scenario_id=sc_id,
@@ -107,5 +113,7 @@ class AlertNormalizer:
             service=service,
             symptom=symptom,
             status=IncidentStatus.DETECTED,
-            incident_window={"start_ts": start_ts, "end_ts": end_ts}
+            incident_window={"start_ts": start_ts, "end_ts": end_ts},
+            data_source=data_source,
+            target_mode=target_mode
         )

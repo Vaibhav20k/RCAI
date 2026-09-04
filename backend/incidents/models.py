@@ -43,6 +43,8 @@ class AgentIncidentView(BaseModel):
     symptom: str
     status: IncidentStatus
     incident_window: Dict[str, float]
+    data_source: str = "simulated"
+    target_mode: str = "SIMULATED"
 
 class Incident(BaseModel):
     incident_id: str = Field(default_factory=lambda: f"inc_{uuid.uuid4().hex[:8]}")
@@ -54,6 +56,8 @@ class Incident(BaseModel):
     symptom: str
     status: IncidentStatus = IncidentStatus.DETECTED
     incident_window: Dict[str, float] = Field(default_factory=dict)
+    data_source: str = Field(default="simulated", description="'simulator' or 'live'")
+    target_mode: str = Field(default="SIMULATED", description="'LIVE', 'SIMULATED', or 'UNREACHABLE'")
     ground_truth: Optional[GroundTruth] = Field(
         default=None,
         description="External ground truth hidden from the AI agent"
@@ -69,5 +73,7 @@ class Incident(BaseModel):
             service=self.service,
             symptom=self.symptom,
             status=self.status,
-            incident_window=self.incident_window
+            incident_window=self.incident_window,
+            data_source=self.data_source,
+            target_mode=self.target_mode
         )

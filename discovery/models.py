@@ -24,6 +24,7 @@ class TopologyNode(BaseModel):
     labels: Dict[str, str] = Field(default_factory=dict, description="Metadata tags / Docker Compose labels")
     has_fault: bool = Field(default=False, description="True if active incident/fault is present on this node")
     status: str = Field(default="HEALTHY", description="'HEALTHY', 'FAULT', or 'DEGRADED'")
+    mode: str = Field(default="SIMULATED", description="'LIVE', 'SIMULATED', or 'UNREACHABLE'")
 
     @property
     def is_instrumented(self) -> bool:
@@ -47,7 +48,8 @@ class TopologyNode(BaseModel):
             "depends_on": self.depends_on,
             "labels": self.labels,
             "has_fault": self.has_fault,
-            "status": self.status
+            "status": self.status,
+            "mode": self.mode
         }
 
 class DiscoveredTopology(BaseModel):

@@ -140,6 +140,8 @@ def list_incidents():
             "status": inc.status.value,
             "started_at": inc.started_at,
             "detected_at": inc.detected_at,
+            "target_mode": inc.target_mode,
+            "data_source": inc.data_source,
             "has_investigation": (inc.incident_id in [inv.incident.incident_id for inv in investigations_db.values()]),
             "has_remediation": (inc.incident_id in outcomes_db)
         }
@@ -165,6 +167,8 @@ def get_incident(incident_id: str):
                 "is_completed": matching_state.is_completed,
                 "stop_reason": matching_state.stop_reason,
                 "current_step": matching_state.current_step,
+                "target_mode": matching_state.incident.target_mode,
+                "data_source": matching_state.incident.data_source,
                 "hypotheses": [h.model_dump() for h in matching_state.hypothesis_set.hypotheses],
                 "action_history": [a.model_dump() for a in matching_state.action_history],
                 "evidence_store": {k: v.model_dump() for k, v in matching_state.evidence_store.items()},
@@ -201,6 +205,8 @@ def trigger_investigation(incident_id: str):
     return {
         "investigation_id": state.investigation_id,
         "incident_id": inc.incident_id,
+        "target_mode": inc.target_mode,
+        "data_source": inc.data_source,
         "is_completed": state.is_completed,
         "stop_reason": state.stop_reason,
         "steps_taken": state.current_step,
@@ -658,7 +664,14 @@ async def stream_investigation(incident_id: str):
     state = investigator.start_investigation(agent_view)
 
     def event_generator():
-        start_payload = json.dumps({"event": "START", "investigation_id": state.investigation_id, "hypotheses": [h.model_dump() for h in state.hypothesis_set.hypotheses]})
+        start_payload = json.dumps({
+            "event": "START",
+            "investigation_id": state.investigation_id,
+            "incident_id": inc.incident_id,
+            "target_mode": inc.target_mode,
+            "data_source": inc.data_source,
+            "hypotheses": [h.model_dump() for h in state.hypothesis_set.hypotheses]
+        })
         yield f"data: {start_payload}\n\n"
 
         while not state.is_completed:
@@ -673,7 +686,15 @@ async def stream_investigation(incident_id: str):
         reports_db[inc.incident_id] = report
         inc.status = IncidentStatus.ROOT_CAUSE_PROPOSED
 
-        complete_payload = json.dumps({"event": "COMPLETE", "stop_reason": state.stop_reason, "report": report.model_dump(), "evidence_store": {k: v.model_dump() for k, v in state.evidence_store.items()}})
+        complete_payload = json.dumps({
+            "event": "COMPLETE",
+            "incident_id": inc.incident_id,
+            "target_mode": inc.target_mode,
+            "data_source": inc.data_source,
+            "stop_reason": state.stop_reason,
+            "report": report.model_dump(),
+            "evidence_store": {k: v.model_dump() for k, v in state.evidence_store.items()}
+        })
         yield f"data: {complete_payload}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
