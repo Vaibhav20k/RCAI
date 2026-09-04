@@ -112,6 +112,8 @@ async function loadTopology(faultService = null) {
 
         container.innerHTML = data.nodes.map(node => {
             const isFault = (faultService && node.id === faultService) || node.has_fault;
+            const mode = (node.mode || "SIMULATED").toUpperCase();
+            const modeClass = mode === "LIVE" ? "live" : (mode === "UNREACHABLE" ? "unreachable" : "simulated");
             return `
                 <div class="topo-node ${isFault ? "fault-node" : ""}" data-service="${node.id}">
                     <div class="topo-node-header">
@@ -119,6 +121,7 @@ async function loadTopology(faultService = null) {
                         <span class="node-status-dot"></span>
                     </div>
                     <span class="node-type">${node.type.toUpperCase()} | ${isFault ? "FAULT" : "HEALTHY"}</span>
+                    <span class="node-mode-badge ${modeClass}">[${mode}]</span>
                 </div>
             `;
         }).join("");
@@ -251,6 +254,7 @@ function renderIncidentContext(inc) {
     const srvPill = document.getElementById("incident-service-pill");
     const stPill = document.getElementById("incident-status-pill");
     const sympDisplay = document.getElementById("incident-symptom-display");
+    const modeBanner = document.getElementById("incident-mode-banner");
 
     if (!inc) {
         if (idBadge) idBadge.innerText = "ID: --";
@@ -261,6 +265,11 @@ function renderIncidentContext(inc) {
             stPill.style.color = "";
         }
         if (sympDisplay) sympDisplay.innerText = "Awaiting fault anomaly detection...";
+        if (modeBanner) {
+            modeBanner.style.display = "none";
+            modeBanner.className = "mode-banner";
+            modeBanner.innerHTML = "";
+        }
         return;
     }
 
@@ -272,6 +281,21 @@ function renderIncidentContext(inc) {
         stPill.style.color = inc.status === "RESOLVED" ? "var(--verified)" : "";
     }
     if (sympDisplay) sympDisplay.innerText = inc.symptom;
+
+    if (modeBanner) {
+        modeBanner.style.display = "block";
+        const mode = (inc.target_mode || "SIMULATED").toUpperCase();
+        if (mode === "LIVE") {
+            modeBanner.className = "mode-banner mode-banner-live";
+            modeBanner.innerHTML = "● LIVE MODE: Connected to live running process via real HTTP socket telemetry.";
+        } else if (mode === "UNREACHABLE") {
+            modeBanner.className = "mode-banner mode-banner-unreachable";
+            modeBanner.innerHTML = "✖ UNREACHABLE: Target service port is not responding. Live HTTP socket probe failed.";
+        } else {
+            modeBanner.className = "mode-banner mode-banner-simulated";
+            modeBanner.innerHTML = "⚠ SIMULATED MODE: In-memory surrogate active — not connected to a live running process. Telemetry and remediation are simulated.";
+        }
+    }
 }
 
 // 7. Update KPI Strip
@@ -614,7 +638,15 @@ function renderTimeline(actions) {
     }
     if (countBadge) countBadge.innerText = `${actions.length} STEPS`;
 
-    container.innerHTML = actions.map(a => `
+    const mode = currentIncident ? (currentIncident.target_mode || "SIMULATED").toUpperCase() : "SIMULATED";
+    let modeBanner = "";
+    if (mode === "SIMULATED") {
+        modeBanner = `<div class="mode-banner mode-banner-simulated" style="margin-bottom:12px;">⚠ SIMULATED MODE: In-memory surrogate active — not connected to a live running process. Telemetry is simulated.</div>`;
+    } else if (mode === "LIVE") {
+        modeBanner = `<div class="mode-banner mode-banner-live" style="margin-bottom:12px;">● LIVE MODE: Diagnostic tools executed against live running HTTP socket endpoints.</div>`;
+    }
+
+    container.innerHTML = modeBanner + actions.map(a => `
         <div class="timeline-entry">
             <div class="timeline-entry-top">
                 <span class="timeline-step-num mono">STEP ${a.step_index}</span>
@@ -902,9 +934,18 @@ function renderOutcome(outcome) {
 
     const pre = outcome.pre_metrics || {};
     const post = outcome.post_metrics || {};
+    const targetMode = (outcome.target_mode || (currentIncident ? currentIncident.target_mode : "SIMULATED") || "SIMULATED").toUpperCase();
+
+    let modeNotice = "";
+    if (targetMode === "SIMULATED") {
+        modeNotice = `<div class="mode-banner mode-banner-simulated" style="margin-bottom:12px;">⚠ SIMULATED MODE: Outcome verified against in-memory surrogate. No live host process was restarted or verified.</div>`;
+    } else if (targetMode === "LIVE") {
+        modeNotice = `<div class="mode-banner mode-banner-live" style="margin-bottom:12px;">● LIVE MODE: Outcome verified against live running HTTP socket endpoints.</div>`;
+    }
 
     panel.innerHTML = `
-        <div class="outcome-title">POST-ACTION EMPIRICAL OUTCOME VERIFICATION: ${outcome.status || "VERIFIED"}</div>
+        ${modeNotice}
+        <div class="outcome-title">POST-ACTION EMPIRICAL OUTCOME VERIFICATION: ${outcome.status || "VERIFIED"} [${targetMode}]</div>
         <p style="color:var(--text-dim); margin-bottom:10px;">${outcome.verification_summary || ""}</p>
 
         <table class="inst-table">
