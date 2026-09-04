@@ -8,8 +8,7 @@ An incident hits one of your services — RCAI diagnoses the root cause, propose
 
 Clone RCAI, run a single command against your project, and watch it discover your running services and metrics endpoints in seconds. When an incident occurs — whether a real latency spike or an injected simulator fault — RCAI evaluates competing hypotheses against live telemetry, isolates the verified root cause with cryptographic SHA-256 provenance, and presents an actionable remediation proposal. You see an operator console with live hypothesis confidence bars, an evidence timeline, and a "Confirm Remediation" button that applies the verified playbook and confirms system recovery.
 
-<!-- TODO: Add a short (15-30s) demo video/GIF here before v1 release -->
-![demo](docs/demo.gif)
+![RCAI Investigation Console](docs/screenshot.png)
 
 ---
 
