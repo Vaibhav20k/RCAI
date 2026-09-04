@@ -12,16 +12,18 @@ let allEvidenceStore = {};
 let allIncidents = [];
 let pendingRemediationProposal = null;
 let currentInvestigationRequestId = 0;
+let knownTopologyServices = new Set(["api-gateway", "order-service", "payment-service", "dependency-service", "worker-service"]);
 
 document.addEventListener("DOMContentLoaded", async () => {
     setupNavigation();
     setupThemeSwitcher();
-    await checkHealthAndConfig();
-    await loadScenarios();
+    await Promise.all([checkHealthAndConfig(), loadScenarios()]);
     await loadTopology();
     await loadActiveIncident();
     setupEventHandlers();
     setupBenchmarkHandlers();
+    window.__RCAI_READY = true;
+    document.body.setAttribute("data-rcai-ready", "true");
 });
 
 async function checkHealthAndConfig() {
@@ -103,6 +105,10 @@ async function loadTopology(faultService = null) {
         const data = await resp.json();
         const container = document.getElementById("topology-graph");
         if (!container || !data.nodes) return;
+
+        data.nodes.forEach(node => {
+            if (node && node.id) knownTopologyServices.add(node.id);
+        });
 
         container.innerHTML = data.nodes.map(node => {
             const isFault = (faultService && node.id === faultService) || node.has_fault;
@@ -211,7 +217,8 @@ async function loadActiveIncident(specificIncidentId = null) {
         renderIncidentContext(currentIncident);
         updateKPIs(currentIncident, currentInvestigation, currentReport);
         updateStepper(currentIncident.status || "DETECTED");
-        await loadTopology(currentIncident.service);
+        const faultService = currentIncident.status === "RESOLVED" ? null : currentIncident.service;
+        await loadTopology(faultService);
 
         // Case-scoped rendering: if uninvestigated, render clean empty states; if investigated, render results
         renderHypotheses(currentInvestigation ? currentInvestigation.hypotheses : null);
@@ -709,7 +716,7 @@ function renderRemediation(report, existingOutcome) {
     const isResolved = (currentIncident && currentIncident.status === "RESOLVED") || (existingOutcome && existingOutcome.is_recovered);
 
     const validServices = ["api-gateway", "order-service", "payment-service", "dependency-service", "worker-service"];
-    const isTargetValid = !dec.is_unknown && dec.root_cause_service && dec.root_cause_service !== "UNKNOWN" && validServices.includes(dec.root_cause_service);
+    const isTargetValid = !dec.is_unknown && dec.root_cause_service && dec.root_cause_service !== "UNKNOWN" && (knownTopologyServices.has(dec.root_cause_service) || validServices.includes(dec.root_cause_service));
 
     let actionType = "rollback_version";
     if (dec.root_cause_category === "database") actionType = "optimize_db_index";
