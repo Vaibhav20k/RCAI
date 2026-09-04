@@ -56,6 +56,14 @@ class InProcessCluster:
 
         self.worker_service = WorkerService(port=8004)
         self.worker_client = TestClient(self.worker_service.app, base_url="http://localhost:8004")
+        self._dynamic_services = {}
+
+    def register_service(self, service_name: str, service_obj=None):
+        if service_name not in self._dynamic_services:
+            from simulator.services.base import BaseService
+            svc = service_obj or BaseService(service_name=service_name)
+            self._dynamic_services[service_name] = svc
+        return self._dynamic_services[service_name]
 
     def clear_all_faults(self) -> None:
         self.gateway_service.fault_injector.clear_faults()
@@ -63,15 +71,20 @@ class InProcessCluster:
         self.payment_service.fault_injector.clear_faults()
         self.dependency_service.fault_injector.clear_faults()
         self.worker_service.fault_injector.clear_faults()
+        for svc in self._dynamic_services.values():
+            if hasattr(svc, "fault_injector"):
+                svc.fault_injector.clear_faults()
 
     def get_service_map(self):
-        return {
+        svc_map = {
             "api-gateway": self.gateway_service,
             "order-service": self.order_service,
             "payment-service": self.payment_service,
             "dependency-service": self.dependency_service,
             "worker-service": self.worker_service,
         }
+        svc_map.update(self._dynamic_services)
+        return svc_map
 
     def get_topology(self):
         from discovery.registry import get_default_simulator_topology

@@ -35,6 +35,12 @@ class RemediationOutcomeVerifier:
             "worker-service": self.cluster.worker_client,
         }
         client = client_map.get(service)
+        if not client and hasattr(self.cluster, "get_service_map"):
+            svc = self.cluster.get_service_map().get(service)
+            if svc and hasattr(svc, "app"):
+                from starlette.testclient import TestClient
+                client = TestClient(svc.app)
+
         is_healthy = False
         if client:
             try:

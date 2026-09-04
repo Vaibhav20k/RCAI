@@ -1,5 +1,6 @@
 # RCAI Centralized Topology Registry & Discovery Dispatcher
 import time
+from pathlib import Path
 from typing import Set, Dict, Optional
 from discovery.models import TopologyNode, DiscoveredTopology
 from discovery.docker_adapter import DockerDiscoveryAdapter
@@ -89,9 +90,42 @@ def get_default_simulator_topology() -> DiscoveredTopology:
         discovered_at=time.time()
     )
 
+def load_compose_topology(compose_path: Path) -> DiscoveredTopology:
+    """
+    Parses a Compose YAML manifest and builds a DiscoveredTopology.
+    Enables drop-in connection to any external project with a docker-compose.yml.
+    """
+    from scripts.inspect_compose import analyze_compose
+    analysis = analyze_compose(compose_path)
+    nodes = {}
+    for detail in analysis.get("service_details", []):
+        sid = detail["service"]
+        svc_type = "database" if detail["is_db_related"] else ("gateway" if any(k in sid for k in ["front", "web", "ui"]) else "service")
+        ports = detail.get("ports", [])
+        m_port = ports[0] if ports else None
+        nodes[sid] = TopologyNode(
+            service_id=sid,
+            name=sid.replace("-", " ").title(),
+            service_type=svc_type,
+            ports=ports,
+            metrics_port=m_port,
+            metrics_path="/metrics",
+            has_metrics=detail.get("has_metrics", False),
+            is_db_related=detail.get("is_db_related", False),
+            depends_on=[]
+        )
+    topo = DiscoveredTopology(
+        nodes=nodes,
+        discovery_mode="compose",
+        discovered_at=time.time()
+    )
+    set_active_topology(topo)
+    return topo
+
 def get_current_topology() -> DiscoveredTopology:
     """
     Returns the active system topology according to the configured RCAI_DISCOVERY_MODE.
+    - 'compose' / RCAI_COMPOSE_FILE: Parses the target Compose manifest.
     - 'docker': Dynamically queries Docker daemon if no cached topology exists.
     - 'none' (default): Returns the simulator / baseline 5-service topology.
     """
@@ -100,6 +134,9 @@ def get_current_topology() -> DiscoveredTopology:
         return _active_topology
 
     settings = get_settings()
+    if settings.RCAI_COMPOSE_FILE and Path(settings.RCAI_COMPOSE_FILE).is_file():
+        return load_compose_topology(Path(settings.RCAI_COMPOSE_FILE))
+
     if settings.RCAI_DISCOVERY_MODE == "docker":
         adapter = DockerDiscoveryAdapter()
         discovered = adapter.discover()
