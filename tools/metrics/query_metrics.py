@@ -32,6 +32,58 @@ class QueryMetricsTool(BaseTool):
 
     def execute(self, service: str, **kwargs) -> ToolResult:
         t0 = time.perf_counter()
+
+        from discovery.registry import get_current_topology
+        from observability.live_http.collector import global_live_http_collector
+        topo = get_current_topology()
+        node = topo.nodes.get(service)
+
+        if node and node.mode == "LIVE" and node.ports:
+            active_port = node.metrics_port or node.ports[0]
+            metrics_data = global_live_http_collector.scrape_service_metrics("127.0.0.1", active_port)
+            duration_ms = (time.perf_counter() - t0) * 1000.0
+
+            if metrics_data.get("status") == "UP":
+                evidence_items = []
+                err_ev = global_live_http_collector.normalize_live_metric(
+                    service=service,
+                    metric_name="error_rate",
+                    metric_value=metrics_data.get("error_rate", 0.0),
+                    unit="ratio"
+                )
+                evidence_items.append(err_ev)
+
+                req_ev = global_live_http_collector.normalize_live_metric(
+                    service=service,
+                    metric_name="total_requests",
+                    metric_value=metrics_data.get("total_requests", 0.0),
+                    unit="count"
+                )
+                evidence_items.append(req_ev)
+
+                for g_name, g_val in metrics_data.get("gauges", {}).items():
+                    g_ev = global_live_http_collector.normalize_live_metric(
+                        service=service,
+                        metric_name=g_name,
+                        metric_value=g_val
+                    )
+                    evidence_items.append(g_ev)
+
+                return ToolResult(
+                    tool_name=self.name,
+                    status=ToolExecutionStatus.SUCCESS,
+                    evidence=evidence_items,
+                    duration_ms=duration_ms
+                )
+            else:
+                # Scrape failed on live socket
+                return ToolResult(
+                    tool_name=self.name,
+                    status=ToolExecutionStatus.ERROR,
+                    error_message=f"Failed to scrape metrics from live port {active_port}: {metrics_data.get('error')}",
+                    duration_ms=duration_ms
+                )
+
         if not self._collector:
             return ToolResult(
                 tool_name=self.name,

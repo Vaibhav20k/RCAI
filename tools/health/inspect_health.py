@@ -23,6 +23,45 @@ class InspectServiceHealthTool(BaseTool):
 
     def execute(self, service: str, **kwargs) -> ToolResult:
         t0 = time.perf_counter()
+
+        from discovery.registry import get_current_topology
+        from observability.live_http.collector import global_live_http_collector
+        topo = get_current_topology()
+        node = topo.nodes.get(service)
+
+        if node and node.mode == "LIVE" and node.ports:
+            active_port = node.metrics_port or node.ports[0]
+            res = global_live_http_collector.query_service_health("127.0.0.1", active_port)
+            duration_ms = (time.perf_counter() - t0) * 1000.0
+            is_up = res.get("is_healthy", False)
+            status_text = "UP" if is_up else "DOWN"
+            status_code = res.get("status_code", 0)
+
+            ev = NormalizedEvidence.create(
+                source=EvidenceSource.METRICS,
+                evidence_type=EvidenceType.METRIC_SERIES,
+                summary=f"Live HTTP socket probe on {service} (port {active_port}): status={status_code} ({status_text})",
+                data={
+                    "service": service,
+                    "status_code": status_code,
+                    "is_up": is_up,
+                    "body": res.get("body", {}),
+                    "error": res.get("error"),
+                    "is_live": True,
+                    "probe_target": f"http://127.0.0.1:{active_port}/health"
+                },
+                query=f"live_http.get(url=http://127.0.0.1:{active_port}/health)",
+                collector="LiveHttpCollector",
+                reliability=0.99
+            )
+
+            return ToolResult(
+                tool_name=self.name,
+                status=ToolExecutionStatus.SUCCESS,
+                evidence=[ev],
+                duration_ms=duration_ms
+            )
+
         if not self._cluster:
             return ToolResult(
                 tool_name=self.name,

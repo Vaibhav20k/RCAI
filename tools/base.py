@@ -27,6 +27,11 @@ class ToolResult(BaseModel):
     error_message: Optional[str] = None
     duration_ms: float = 0.0
 
+    def __init__(self, **data):
+        if "evidence_items" in data and "evidence" not in data:
+            data["evidence"] = data.pop("evidence_items")
+        super().__init__(**data)
+
 class BaseTool(BaseModel):
     name: str
     description: str
