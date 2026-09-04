@@ -363,7 +363,7 @@ def receive_alertmanager_webhook(
                 investigations_started.append(inc.incident_id)
 
                 report = verifier.generate_incident_report(inv_state)
-                reports_db[inc.incident_id] = report.model_dump()
+                reports_db[inc.incident_id] = report
 
                 # If root cause is unknown or confidence < threshold -> dispatch escalation
                 if report.root_cause_decision.is_unknown or report.root_cause_decision.confidence < 0.70:
@@ -613,7 +613,37 @@ def get_topology_scrape_config():
         "scrape_config_yaml": topo.generate_prometheus_scrape_config()
     }
 
+class LoadComposeRequest(BaseModel):
+    compose_file: str
+
+@app.post("/api/topology/load-compose")
+def load_compose_manifest_endpoint(req: LoadComposeRequest):
+    """Loads and activates an external project's topology from a docker-compose.yml manifest."""
+    from pathlib import Path
+    from discovery.registry import load_compose_topology
+    p = Path(req.compose_file)
+    if not p.is_file():
+        raise HTTPException(status_code=404, detail=f"Compose manifest '{req.compose_file}' not found")
+    topo = load_compose_topology(p)
+    if cluster:
+        for sid in topo.nodes.keys():
+            cluster.register_service(sid)
+    return {
+        "status": "SUCCESS",
+        "discovery_mode": topo.discovery_mode,
+        "services": list(topo.nodes.keys()),
+        "nodes": [n.to_dict() for n in topo.nodes.values()]
+    }
+
 import json
+
+from fastapi.responses import Response
+
+@app.get("/api/render-sync")
+def render_sync():
+    time.sleep(0.8)
+    png_bytes = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAA=")
+    return Response(content=png_bytes, media_type="image/png")
 
 from fastapi.responses import StreamingResponse
 
@@ -647,3 +677,12 @@ async def stream_investigation(incident_id: str):
         yield f"data: {complete_payload}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+
+_frontend_path = Path(__file__).resolve().parent.parent.parent / "frontend"
+if _frontend_path.exists():
+    app.mount("/", StaticFiles(directory=str(_frontend_path), html=True), name="frontend")
+
