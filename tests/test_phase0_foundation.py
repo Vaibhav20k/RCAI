@@ -45,13 +45,13 @@ def test_directory_structure_exists():
 def test_essential_documentation_exists():
     required_docs = [
         "README.md",
-        "docs/README.md",
-        "docs/PHASES.md",
         "docs/architecture.md",
-        "docs/research.md",
         "docs/evaluation.md",
         "docs/safety.md",
         "docs/decisions.md",
+        "docs/CONCEPTS.md",
+        "docs/VISION.md",
+        "docs/external-validation.md",
         ".env.example",
         "pyproject.toml",
         "docker-compose.yml",
