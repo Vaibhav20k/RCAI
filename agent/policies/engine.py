@@ -53,6 +53,19 @@ class PolicyEngine:
                 rejection_reason=f"Target service {proposal.target_service} not recognized in microservice topology"
             )
 
+        # 2b. Validate target service reachability / mode
+        from discovery.registry import get_current_topology
+        try:
+            current_topo = get_current_topology()
+            node = current_topo.nodes.get(proposal.target_service) if current_topo else None
+            if node and (node.mode == "UNREACHABLE" or node.status == "UNREACHABLE"):
+                return PolicyCheckResult(
+                    is_allowed=False,
+                    policy_code="DENIED_UNREACHABLE_TARGET",
+                    rejection_reason=f"Target service '{proposal.target_service}' is UNREACHABLE; remediation cannot proceed."
+                )
+        except Exception:
+            pass
 
         # 3. Check incident active status if incident object is provided
         if incident and incident.status in [IncidentStatus.RESOLVED, IncidentStatus.ESCALATED]:
@@ -155,6 +168,19 @@ class PolicyEngine:
                 rejection_reason=f"Reversal target service '{proposal.target_service}' not recognized in microservice topology"
             )
 
+        # 1b. Validate reversal target service reachability / mode
+        from discovery.registry import get_current_topology
+        try:
+            current_topo = get_current_topology()
+            node = current_topo.nodes.get(proposal.target_service) if current_topo else None
+            if node and (node.mode == "UNREACHABLE" or node.status == "UNREACHABLE"):
+                return PolicyCheckResult(
+                    is_allowed=False,
+                    policy_code="DENIED_UNREACHABLE_TARGET",
+                    rejection_reason=f"Reversal target service '{proposal.target_service}' is UNREACHABLE; compensating reversal cannot proceed."
+                )
+        except Exception:
+            pass
 
         # 2. Idempotency / duplicate reversal protection
         reversal_key = f"reversal:{proposal.action_type}:{proposal.target_service}"

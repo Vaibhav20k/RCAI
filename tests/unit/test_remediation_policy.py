@@ -128,3 +128,41 @@ def test_failed_remediation_does_not_mutate_state_or_recover(cluster_and_executo
 
     # Verify cluster remains in degraded state (zero unauthorized mutations)
     assert cluster.payment_client.get("/health").status_code == 500
+
+def test_unreachable_target_service_denied_by_policy(cluster_and_executor):
+    cluster, policy_engine, executor = cluster_and_executor
+    from discovery.registry import set_active_topology, reset_active_topology, get_default_simulator_topology
+    from discovery.models import TopologyNode
+
+    # Create topology where payment-service is UNREACHABLE
+    base_topo = get_default_simulator_topology()
+    unreachable_node = base_topo.nodes["payment-service"].model_copy(update={"mode": "UNREACHABLE", "status": "UNREACHABLE"})
+    base_topo.nodes["payment-service"] = unreachable_node
+    set_active_topology(base_topo)
+
+    try:
+        proposal = RemediationProposal(
+            incident_id="inc_rem_unreachable",
+            action_type=RemediationActionType.ROLLBACK_VERSION,
+            target_service="payment-service",
+            parameters={"target_version": "1.0.0"},
+            rationale="Attempt rollback on unreachable service"
+        )
+        # 1. Standard proposal evaluation
+        policy_res = policy_engine.evaluate_proposal(proposal)
+        assert policy_res.is_allowed is False
+        assert policy_res.policy_code == "DENIED_UNREACHABLE_TARGET"
+        assert "UNREACHABLE" in policy_res.rejection_reason
+
+        # 2. Execution via BoundedRemediationExecutor
+        exec_res = executor.execute_remediation(proposal)
+        assert exec_res.status == ToolExecutionStatus.PERMISSION_DENIED
+        assert "UNREACHABLE" in exec_res.error_message
+
+        # 3. Reversal evaluation
+        rev_res = policy_engine.evaluate_reversal_proposal(proposal)
+        assert rev_res.is_allowed is False
+        assert rev_res.policy_code == "DENIED_UNREACHABLE_TARGET"
+    finally:
+        reset_active_topology()
+
